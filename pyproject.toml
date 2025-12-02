@@ -1,0 +1,117 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pronunciation-scoring-mvp"
+version = "1.0.0"
+description = "A complete offline-friendly AI-powered pronunciation assessment system"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["pronunciation", "speech", "assessment", "AI", "whisper", "TTS"]
+authors = [
+    {name = "Pronunciation Scoring MVP Team"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "streamlit>=1.31.0,<1.40.0",
+    "protobuf>=4.25.0,<5.0.0",
+    "numpy==1.26.4",
+    "scipy>=1.11.0,<1.14.0",
+    "librosa==0.10.1",
+    "soundfile>=0.12.0",
+    "pydub>=0.25.0",
+    "openai-whisper>=20231117",
+    "faster-whisper==1.0.1",
+    "torch==2.1.2",
+    "torchaudio==2.1.2",
+    "torchvision==0.16.2",
+    "streamlit-audiorec>=0.0.4",
+    "dtw-python==1.5.1",
+    "praat-parselmouth>=0.4.3",
+    "python-Levenshtein>=0.21.0",
+    "jiwer>=3.0.0",
+    "matplotlib>=3.7.0,<4.0.0",
+    "pyyaml>=6.0",
+    "transformers>=4.30.0,<4.46.0",
+    "phonemizer>=3.2.0",
+]
+
+[project.optional-dependencies]
+# GPU support with CUDA 11.8
+cuda = [
+    "torch==2.1.2",  # Will be installed from PyTorch index
+    "torchaudio==2.1.2",
+    "torchvision==0.16.2",
+]
+
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yangxing5200/pronunciation-scoring-mvp"
+Repository = "https://github.com/yangxing5200/pronunciation-scoring-mvp"
+Documentation = "https://github.com/yangxing5200/pronunciation-scoring-mvp/blob/main/README.md"
+Issues = "https://github.com/yangxing5200/pronunciation-scoring-mvp/issues"
+
+[project.scripts]
+pronunciation-scoring = "app:main"
+
+[tool.setuptools]
+packages = ["core"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | models
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=core --cov-report=html --cov-report=term"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

@@ -1,6 +1,6 @@
-# Core dependencies - compatible versions for Python 3.10+
-# This file contains base dependencies. Use requirements-cpu.txt or requirements-cuda.txt
-# for platform-specific installations.
+# GPU (CUDA) installation requirements
+# Use this file if you have an NVIDIA GPU with CUDA support
+# Installation: pip install -r requirements-cuda.txt
 
 # Web framework
 streamlit>=1.31.0,<1.40.0
@@ -21,11 +21,12 @@ pydub>=0.25.0
 openai-whisper>=20231117
 faster-whisper==1.0.1
 
-# PyTorch - base installation (CPU version)
-# For GPU support, use requirements-cuda.txt instead
-torch==2.1.2
-torchaudio==2.1.2
-torchvision==0.16.2
+# PyTorch with CUDA 11.8 support
+# Note: These will install CUDA-enabled versions from PyTorch repository
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.1.2+cu118
+torchaudio==2.1.2+cu118
+torchvision==0.16.2+cu118
 
 # Audio recording component
 streamlit-audiorec>=0.0.4
@@ -46,6 +47,9 @@ pyyaml>=6.0
 transformers>=4.30.0,<4.46.0
 phonemizer>=3.2.0
 
-# Note: IndexTTS2 requires separate installation from GitHub
+# Optional: xformers for memory-efficient attention (GPU only)
+# Uncomment if you need it and have a compatible GPU
+# xformers==0.0.23.post1; platform_system != "Darwin"
+
+# Note: IndexTTS2 requires separate installation
 # Install with: pip install git+https://github.com/index-tts/index-tts.git
-# Or clone and install manually: git clone https://github.com/index-tts/index-tts.git && cd index-tts && pip install -e .

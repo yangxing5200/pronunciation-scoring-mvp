@@ -47,47 +47,175 @@ pronunciation-scoring-mvp/
 
 ## Installation
 
-### Development Environment (with Internet)
+### Prerequisites
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd pronunciation-scoring-mvp
-   ```
+- **Python 3.10 or higher** (tested with Python 3.10, 3.11, and 3.12)
+- **pip** (latest version recommended)
+- **Git** (for cloning repositories)
+- **CUDA 11.8** (optional, only if using GPU acceleration)
 
-2. **Install Python dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Step 1: Clone the Repository
 
-3. **Download AI models**
-   ```bash
-   python scripts/download_models.py --whisper-model base
-   ```
+```bash
+git clone <repository-url>
+cd pronunciation-scoring-mvp
+```
 
-4. **Install IndexTTS2 (optional, for voice cloning)**
-   ```bash
-   git clone https://github.com/index-tts/index-tts.git
-   cd index-tts
-   pip install -e .
-   cd ..
-   ```
-   
-   Download IndexTTS2 pre-trained models and place in `models/indextts2/`
-   
-   **Note**: Voice cloning will work in fallback mode without IndexTTS2
+### Step 2: Create Virtual Environment (Recommended)
 
-5. **Run the application**
-   ```bash
-   streamlit run app.py
-   ```
+Creating a virtual environment helps avoid dependency conflicts:
+
+**On Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**On Linux/Mac:**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### Step 3: Upgrade pip
+
+Always use the latest pip to avoid installation issues:
+
+```bash
+python -m pip install --upgrade pip
+```
+
+### Step 4: Install Dependencies
+
+Choose the installation method based on your hardware:
+
+#### Option A: CPU-Only Installation (No GPU Required)
+
+This is suitable for most users and doesn't require NVIDIA GPU:
+
+```bash
+pip install -r requirements-cpu.txt
+```
+
+**Note:** CPU inference is slower but works on all machines.
+
+#### Option B: GPU Installation (Recommended for NVIDIA GPU users)
+
+If you have an NVIDIA GPU with CUDA 11.8 support:
+
+```bash
+pip install -r requirements-cuda.txt
+```
+
+**Benefits:**
+- 5-10x faster inference
+- Better for real-time processing
+- Supports larger Whisper models
+
+**Requirements:**
+- NVIDIA GPU (GTX 1060 or better recommended)
+- CUDA 11.8 installed
+- At least 4GB VRAM
+
+#### Option C: Alternative - Base Installation
+
+For simple setup, you can also use:
+
+```bash
+pip install -r requirements.txt
+```
+
+This installs CPU versions by default.
+
+### Step 5: Install IndexTTS2 (Optional, for Voice Cloning)
+
+IndexTTS2 enables the voice cloning feature. If you skip this step, the system will work in fallback mode using pre-generated standard audio.
+
+```bash
+git clone https://github.com/index-tts/index-tts.git
+cd index-tts
+pip install -e .
+cd ..
+```
+
+Download IndexTTS2 pre-trained models and place them in `models/indextts2/`. See the [IndexTTS2 repository](https://github.com/index-tts/index-tts) for model download instructions.
+
+### Step 6: Download AI Models
+
+Download the Whisper model for speech recognition:
+
+```bash
+python scripts/download_models.py --whisper-model base
+```
+
+**Available Whisper models:**
+- `tiny` - Fastest, ~39M params (~1 GB RAM)
+- `base` - **Recommended**, ~74M params (~1.5 GB RAM)
+- `small` - Better accuracy, ~244M params (~2.5 GB RAM)
+- `medium` - High accuracy, ~769M params (~5 GB RAM, GPU recommended)
+- `large` - Best accuracy, ~1550M params (~10 GB RAM, GPU required)
+
+### Step 7: Run the Application
+
+```bash
+streamlit run app.py
+```
+
+The application will open in your default web browser at `http://localhost:8501`.
+
+### Troubleshooting Installation
+
+#### Issue: Dependency conflicts during installation
+
+**Solution:**
+1. Make sure you're using Python 3.10 or higher: `python --version`
+2. Upgrade pip: `python -m pip install --upgrade pip`
+3. Use a fresh virtual environment
+4. Install from the correct requirements file (cpu vs cuda)
+
+#### Issue: "cannot import name 'builder' from 'google.protobuf.internal'"
+
+**Solution:** This means protobuf version is too old. Update it:
+```bash
+pip install --upgrade "protobuf>=4.25.0,<5.0.0"
+```
+
+#### Issue: Torch version conflicts
+
+**Solution:** Uninstall all torch packages and reinstall from requirements:
+```bash
+pip uninstall torch torchvision torchaudio -y
+pip install -r requirements-cpu.txt  # or requirements-cuda.txt
+```
+
+#### Issue: numpy version conflicts with dtw-python
+
+**Solution:** The requirements files specify compatible versions. If issues persist:
+```bash
+pip install numpy==1.26.4 dtw-python==1.5.1
+```
+
+#### Issue: GPU not detected (CUDA installation)
+
+**Solution:**
+1. Verify CUDA installation: `nvidia-smi`
+2. Check PyTorch GPU support: `python -c "import torch; print(torch.cuda.is_available())"`
+3. If false, reinstall with: `pip install -r requirements-cuda.txt --force-reinstall`
 
 ### Offline Environment (Production Deployment)
 
-1. **Prepare in development environment** (with internet)
+For deploying to a machine without internet access:
+
+1. **Prepare in development environment** (with internet access)
    - Complete all installation steps above
    - Ensure all models are downloaded to `models/` directory
    - Verify the application works: `streamlit run app.py`
+   - Download wheel files for offline installation:
+     ```bash
+     mkdir wheels
+     pip download -r requirements-cpu.txt -d wheels/
+     # Or for GPU: pip download -r requirements-cuda.txt -d wheels/
+     ```
 
 2. **Package for offline deployment**
    ```bash
@@ -99,6 +227,9 @@ pronunciation-scoring-mvp/
        assets/ \
        scripts/ \
        requirements.txt \
+       requirements-cpu.txt \
+       requirements-cuda.txt \
+       wheels/ \
        README.md
    ```
 
@@ -108,8 +239,14 @@ pronunciation-scoring-mvp/
    tar -xzf pronunciation-scoring-offline.tar.gz
    cd pronunciation-scoring-mvp
    
-   # Install Python packages (if not pre-installed)
-   pip install -r requirements.txt --no-index --find-links ./wheels/
+   # Create virtual environment
+   python -m venv venv
+   # Activate (Windows: venv\Scripts\activate, Linux/Mac: source venv/bin/activate)
+   
+   # Install packages from local wheels
+   pip install --upgrade pip
+   pip install --no-index --find-links ./wheels/ -r requirements-cpu.txt
+   # Or for GPU: pip install --no-index --find-links ./wheels/ -r requirements-cuda.txt
    
    # Run application
    streamlit run app.py
