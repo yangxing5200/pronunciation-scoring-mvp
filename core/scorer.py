@@ -19,15 +19,17 @@ class PronunciationScorer:
         self.comparator = TextComparator()
         
         # Phoneme similarity matrix (simplified)
-        # In production, use a more comprehensive phoneme distance matrix
+        # TODO: Load from configuration file or use standardized phoneme distance matrix
+        # Current values are empirical approximations
+        # Format: (phoneme1, phoneme2): similarity_score (0.0-1.0)
         self.phoneme_similarities = {
-            ('i', 'ɪ'): 0.7,
-            ('e', 'ɛ'): 0.7,
-            ('æ', 'ɛ'): 0.6,
-            ('s', 'ʃ'): 0.5,
-            ('r', 'l'): 0.3,
-            ('θ', 's'): 0.5,
-            ('ð', 'z'): 0.5,
+            ('i', 'ɪ'): 0.7,   # Close vowels
+            ('e', 'ɛ'): 0.7,   # Mid vowels
+            ('æ', 'ɛ'): 0.6,   # Near-open vs mid vowels
+            ('s', 'ʃ'): 0.5,   # Sibilants
+            ('r', 'l'): 0.3,   # Liquids (often confused)
+            ('θ', 's'): 0.5,   # Fricatives
+            ('ð', 'z'): 0.5,   # Voiced fricatives
         }
     
     def score_pronunciation(

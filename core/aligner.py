@@ -68,7 +68,10 @@ class PhonemeAligner:
         Returns:
             Pitch contour (time_frames,)
         """
-        f0, voiced_flag, voiced_probs = librosa.pyin(
+        # Extract pitch using pyin algorithm
+        # Note: voiced_flag and voiced_probs could be used for more advanced
+        # voicing detection, but for this MVP we only use the F0 values
+        f0, _, _ = librosa.pyin(
             audio,
             fmin=librosa.note_to_hz('C2'),
             fmax=librosa.note_to_hz('C7'),

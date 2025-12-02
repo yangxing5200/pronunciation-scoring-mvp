@@ -25,12 +25,12 @@ def test_text_comparator():
         
         # Test 1: Exact match
         result = tc.compare_texts("hello world", "hello world")
-        assert result["match"] == True
+        assert result["match"] is True
         print("✓ Test 1: Exact match works")
         
         # Test 2: Different texts
         result = tc.compare_texts("hello world", "goodbye world")
-        assert result["match"] == False
+        assert result["match"] is False
         assert result["similarity"] < 1.0
         print(f"✓ Test 2: Similarity calculation works (similarity: {result['similarity']:.2f})")
         

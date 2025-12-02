@@ -317,8 +317,14 @@ if "last_result" in st.session_state:
     
     with m1:
         score = result['total_score']
-        delta = "good" if score >= 80 else "normal" if score >= 60 else "bad"
-        st.metric("Overall Score", f"{score}/100", delta=delta)
+        # Determine color based on score
+        if score >= 80:
+            delta_color = "normal"
+        elif score >= 60:
+            delta_color = "off"
+        else:
+            delta_color = "inverse"
+        st.metric("Overall Score", f"{score}/100")
     
     with m2:
         st.metric("🎯 Accuracy", f"{result['accuracy']}/100")

@@ -108,11 +108,14 @@ def create_model_structure():
     # Create placeholder config for IndexTTS2
     config_path = Path("models/indextts2/config.yaml")
     if not config_path.exists():
-        config_path.write_text("""# IndexTTS2 Configuration Placeholder
+        # Create a properly formatted YAML config
+        config_content = """\
+# IndexTTS2 Configuration Placeholder
 # Replace this with actual config.yaml from IndexTTS2 model download
 model_type: indextts2
 sample_rate: 22050
-""")
+"""
+        config_path.write_text(config_content)
         print(f"✓ Created placeholder config: {config_path}")
 
 
