@@ -6,8 +6,8 @@ from pathlib import Path
 import warnings
 import tempfile
 import base64
-import uuid
 import json
+import html
 
 # Import core modules
 try:
@@ -478,12 +478,17 @@ if "last_result" in st.session_state:
                 color = "#dc3545"  # red
                 emoji = "❌"
             
+            # Escape word and emoji to prevent XSS
+            word_escaped = html.escape(str(word))
+            emoji_escaped = html.escape(str(emoji))
+            score_escaped = html.escape(str(score))
+            
             word_html += f'''
             <button onclick="playWord({start_time}, {end_time})" 
                     style="margin:4px; padding:8px 12px; border-radius:8px; 
                            border:2px solid {color}; background:white; 
                            cursor:pointer; font-size:14px;">
-                {emoji} {word}<br><small>{score}</small>
+                {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
             </button>
             '''
         
@@ -496,7 +501,13 @@ if "last_result" in st.session_state:
                 const audio = document.getElementById('user-recording');
                 if (stopTimeout) clearTimeout(stopTimeout);
                 audio.currentTime = startTime;
-                audio.play();
+                
+                // Play with error handling
+                audio.play().catch(function(error) {{
+                    console.error('Playback failed:', error);
+                    // Audio playback might fail if user hasn't interacted with the page yet
+                }});
+                
                 stopTimeout = setTimeout(() => audio.pause(), (endTime - startTime) * 1000);
             }}
         </script>
