@@ -75,12 +75,12 @@ class AudioProcessor:
             
             # Initialize voice cloner (optional)
             try:
-                self.voice_cloner = VoiceCloner(
-                    model_dir="models/indextts2"
-                )
+                    self.voice_cloner = VoiceCloner(
+                        model_dir="models/indextts2"
+                    )
             except Exception as e:
-                warnings.warn(f"Voice cloner not available: {e}")
-                self.voice_cloner = None
+                    warnings.warn(f"Voice cloner not available: {e}")
+                    self.voice_cloner = None
             
             self.model_loaded = True
             

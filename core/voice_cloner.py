@@ -1,88 +1,59 @@
 """
-Voice cloning module using IndexTTS2 for timbre transfer.
-Note: This is a placeholder implementation. IndexTTS2 requires separate installation.
+Voice cloning module using IndexTTS2 for timbre transfer. 
+Uses subprocess to call index-tts CLI to avoid dependency conflicts.
 """
 
 import os
+import subprocess
 import warnings
-import traceback
 from pathlib import Path
 from typing import Optional, Union
 
 
 class VoiceCloner:
     """
-    Voice cloner using IndexTTS2 for timbre transfer.
-    
-    Note: IndexTTS2 is not available as a standard pip package.
-    This implementation provides the interface with fallback to mock behavior.
+    Voice cloner using IndexTTS2 for timbre transfer. 
+    Uses subprocess to call index-tts in its own environment.
     """
     
     def __init__(
         self,
         model_dir: str = "models/indextts2",
-        device: str = "cpu",
-        use_fp16: bool = False
+        device: str = "cuda",
+        use_fp16: bool = False,
+        index_tts_path: str = "D:/workspace/dev/github/index-tts"  # 你的 index-tts 路径
     ):
         """
         Initialize voice cloner.
         
         Args:
-            model_dir: Directory containing IndexTTS2 model files
+            model_dir: Directory containing IndexTTS2 model files (unused, kept for compatibility)
             device: Device to use (cpu/cuda)
             use_fp16: Whether to use FP16 precision
+            index_tts_path: Path to index-tts project directory
         """
-        self.model_dir = Path(model_dir)
+        self.index_tts_path = Path(index_tts_path)
         self.device = device
         self.use_fp16 = use_fp16
-        self.model = None
         self.model_available = False
         
-        self._load_model()
+        self._check_availability()
     
-    def _load_model(self):
-        """Load IndexTTS2 model if available."""
-        try:
-            # Try to import IndexTTS2
-            # Note: This will fail if IndexTTS2 is not installed
-            print("Attempting to load IndexTTS2...")
-            from indextts.infer_v2 import IndexTTS2
-            
-            config_path = self.model_dir / "config.yaml"
-            
-            if not self.model_dir.exists():
-                warnings.warn(
-                    f"IndexTTS2 model directory not found at {self.model_dir}. "
-                    f"Voice cloning will use fallback mode."
-                )
-                return
-            
-            if not config_path.exists():
-                warnings.warn(
-                    f"IndexTTS2 config not found at {config_path}. "
-                    f"Voice cloning will use fallback mode."
-                )
-                return
-            
-            print(f"Loading IndexTTS2 from {self.model_dir}...")
-            self.model = IndexTTS2(
-                cfg_path=str(config_path),
-                model_dir=str(self.model_dir),
-                use_fp16=self.use_fp16,
-                device=self.device
-            )
-            self.model_available = True
-            print(f"✓ IndexTTS2 loaded successfully on {self.device}")
-            
-        except ImportError:
-            warnings.warn(
-                "IndexTTS2 not installed. Voice cloning will use fallback mode. "
-                "To enable voice cloning, install IndexTTS2 from: "
-                "https://github.com/index-tts/index-tts"
-            )
-        except Exception as e:
-            warnings.warn(f"Failed to load IndexTTS2: {e}. Using fallback mode.")
-            traceback.print_exc()
+    def _check_availability(self):
+        """Check if index-tts is available."""
+        checkpoints_path = self.index_tts_path / "checkpoints"
+        config_path = checkpoints_path / "config.yaml"
+        
+        if not self.index_tts_path.exists():
+            warnings.warn(f"index-tts directory not found at {self.index_tts_path}")
+            return
+        
+        if not config_path.exists():
+            warnings. warn(f"index-tts config not found at {config_path}")
+            return
+        
+        self.model_available = True
+        print(f"✓ IndexTTS2 available at {self.index_tts_path}")
     
     def clone_voice(
         self,
@@ -103,44 +74,69 @@ class VoiceCloner:
         Returns:
             True if successful, False otherwise
         """
-        reference_audio_path = Path(reference_audio_path)
-        output_path = Path(output_path)
+        reference_audio_path = Path(reference_audio_path). resolve()
+        output_path = Path(output_path).resolve()
         
-        if not reference_audio_path.exists():
+        if not reference_audio_path. exists():
             raise FileNotFoundError(f"Reference audio not found: {reference_audio_path}")
         
         # Ensure output directory exists
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path. parent.mkdir(parents=True, exist_ok=True)
         
-        if self.model_available and self.model is not None:
-            try:
-                # Use actual IndexTTS2 model
-                print(f"IndexTTS2: Generating speech for '{text}' using reference {reference_audio_path.name}")
-                self.model.infer(
-                    text=text,
-                    ref_audio_path=str(reference_audio_path),
-                    output_path=str(output_path),
-                    language=language
-                )
-                
-                # Verify output was created
-                if output_path.exists() and output_path.stat().st_size > 0:
-                    print(f"IndexTTS2: Successfully generated audio at {output_path}")
-                    return True
-                else:
-                    warnings.warn(f"IndexTTS2: Output file not created or empty")
-                    return False
-                    
-            except Exception as e:
-                warnings.warn(f"IndexTTS2 inference failed: {e}")
-                traceback.print_exc()
-                return False
-        else:
-            # Model not available
-            warnings.warn(
-                f"Voice cloning not available. IndexTTS2 model not loaded. "
-                f"Would generate: '{text}' using reference {reference_audio_path.name}"
+        if not self.model_available:
+            warnings.warn("Voice cloning not available.  IndexTTS2 not found.")
+            return False
+        
+        try:
+            print(f"IndexTTS2: Generating speech for '{text}' using reference {reference_audio_path. name}")
+            
+            # 构建 Python 脚本
+            python_script = f'''
+import sys
+sys.path.insert(0, "{self.index_tts_path. as_posix()}")
+from indextts. infer_v2 import IndexTTS2
+
+tts = IndexTTS2(
+    cfg_path="checkpoints/config.yaml",
+    model_dir="checkpoints",
+    use_fp16={self.use_fp16}
+)
+tts.infer(
+    spk_audio_prompt=r"{reference_audio_path}",
+    text=r"{text}",
+    output_path=r"{output_path}",
+    verbose=True
+)
+print("SUCCESS")
+'''
+            
+            # 使用 uv run 在 index-tts 环境中执行
+            result = subprocess. run(
+                ["uv", "run", "python", "-c", python_script],
+                cwd=str(self.index_tts_path),
+                capture_output=True,
+                text=True,
+                timeout=120  # 2分钟超时
             )
+            
+            if result.returncode != 0:
+                print(f"IndexTTS2 stderr: {result.stderr}")
+                warnings.warn(f"IndexTTS2 inference failed: {result. stderr}")
+                return False
+            
+            # Verify output was created
+            if output_path.exists() and output_path. stat().st_size > 0:
+                print(f"IndexTTS2: Successfully generated audio at {output_path}")
+                return True
+            else:
+                warnings.warn("IndexTTS2: Output file not created or empty")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            warnings.warn("IndexTTS2 inference timed out")
+            return False
+        except Exception as e:
+            warnings. warn(f"IndexTTS2 inference failed: {e}")
             return False
     
     def generate_standard_pronunciation(
@@ -151,14 +147,6 @@ class VoiceCloner:
     ) -> bool:
         """
         Generate standard pronunciation in user's voice.
-        
-        Args:
-            text: Text to pronounce (standard pronunciation)
-            user_audio_path: User's audio for timbre reference
-            output_path: Where to save the cloned audio
-        
-        Returns:
-            True if successful, False otherwise
         """
         return self.clone_voice(
             text=text,
@@ -168,9 +156,6 @@ class VoiceCloner:
     
     def is_available(self) -> bool:
         """
-        Check if voice cloning is available.
-        
-        Returns:
-            True if model is loaded and available
+        Check if voice cloning is available. 
         """
-        return self.model_available and self.model is not None
+        return self.model_available
