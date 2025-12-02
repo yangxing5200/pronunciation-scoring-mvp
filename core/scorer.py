@@ -3,6 +3,7 @@ Comprehensive pronunciation scoring system.
 """
 
 import numpy as np
+import string
 from typing import Dict, List, Optional
 from .aligner import PhonemeAligner
 from .text_comparator import TextComparator
@@ -31,6 +32,20 @@ class PronunciationScorer:
             ('θ', 's'): 0.5,   # Fricatives
             ('ð', 'z'): 0.5,   # Voiced fricatives
         }
+    
+    def _remove_punctuation(self, text: str) -> str:
+        """
+        Remove punctuation from text for better word matching.
+        
+        Args:
+            text: Input text
+        
+        Returns:
+            Text with punctuation removed
+        """
+        # Remove common punctuation marks
+        translator = str.maketrans('', '', string.punctuation)
+        return text.translate(translator)
     
     def score_pronunciation(
         self,
@@ -130,23 +145,41 @@ class PronunciationScorer:
         Returns:
             List of word scores
         """
-        ref_words = reference_text.lower().split()
-        trans_words = transcribed_text.lower().split()
+        # Remove punctuation before splitting to avoid matching issues
+        ref_clean = self._remove_punctuation(reference_text.lower())
+        trans_clean = self._remove_punctuation(transcribed_text.lower())
+        
+        ref_words = ref_clean.split()
+        trans_words = trans_clean.split()
         
         word_scores = []
         
-        # Align words using simple matching
+        # Track which transcribed words have been matched
+        matched_indices = set()
+        
+        # Align words using improved matching algorithm
         for i, ref_word in enumerate(ref_words):
             score = 0
             status = "missing"
             
-            # Check if word appears in transcription
+            # First, try exact match in the transcription
             if ref_word in trans_words:
-                # Word was recognized
-                score = 90
-                status = "correct"
-            elif i < len(trans_words):
-                # Check similarity
+                # Find the closest position match that hasn't been used
+                best_match_idx = None
+                for idx, trans_word in enumerate(trans_words):
+                    if trans_word == ref_word and idx not in matched_indices:
+                        # Prefer matches close to the expected position
+                        if best_match_idx is None or abs(idx - i) < abs(best_match_idx - i):
+                            best_match_idx = idx
+                
+                if best_match_idx is not None:
+                    matched_indices.add(best_match_idx)
+                    score = 90
+                    status = "correct"
+            
+            # If no exact match, try positional comparison
+            if score == 0 and i < len(trans_words):
+                # Check similarity with word at same position
                 similarity = self.comparator.calculate_word_similarity(
                     ref_word,
                     trans_words[i]
@@ -154,8 +187,29 @@ class PronunciationScorer:
                 score = int(similarity * 100)
                 status = "partial" if score > 50 else "incorrect"
             
+            # If still no good match, try finding best match in remaining words
+            if score < 50:
+                remaining_words = [
+                    trans_words[idx] for idx in range(len(trans_words))
+                    if idx not in matched_indices
+                ]
+                if remaining_words:
+                    best_match, best_similarity = self.comparator.find_closest_match(
+                        ref_word,
+                        remaining_words
+                    )
+                    if best_similarity > score / 100:
+                        # Update score if we found a better match
+                        score = int(best_similarity * 100)
+                        status = "partial" if score > 50 else "incorrect"
+                        # Mark this word as matched
+                        for idx, trans_word in enumerate(trans_words):
+                            if trans_word == best_match and idx not in matched_indices:
+                                matched_indices.add(idx)
+                                break
+            
             word_scores.append({
-                "word": ref_word,
+                "word": ref_words[i],  # Use cleaned word
                 "score": score,
                 "status": status
             })
