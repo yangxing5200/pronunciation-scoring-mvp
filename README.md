@@ -47,6 +47,8 @@ pronunciation-scoring-mvp/
 
 ## Installation
 
+> **📖 For detailed installation instructions, troubleshooting, and system requirements, see [INSTALL.md](INSTALL.md)**
+
 ### Prerequisites
 
 - **Python 3.10 or higher** (tested with Python 3.10, 3.11, and 3.12)
@@ -201,6 +203,30 @@ pip install numpy==1.26.4 dtw-python==1.5.1
 1. Verify CUDA installation: `nvidia-smi`
 2. Check PyTorch GPU support: `python -c "import torch; print(torch.cuda.is_available())"`
 3. If false, reinstall with: `pip install -r requirements-cuda.txt --force-reinstall`
+
+#### Issue: Packages requiring system libraries (faster-whisper, phonemizer, etc.)
+
+Some packages may require system libraries to be installed first:
+
+**For faster-whisper (requires ffmpeg):**
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+**For phonemizer (requires espeak-ng):**
+```bash
+# Ubuntu/Debian
+sudo apt install espeak-ng
+
+# macOS
+brew install espeak-ng
+```
+
+**Note:** See [INSTALL.md](INSTALL.md) for detailed system dependency information.
 
 ### Offline Environment (Production Deployment)
 
