@@ -4,6 +4,7 @@ import time
 import os
 from pathlib import Path
 import warnings
+import tempfile
 
 # Import core modules
 try:
@@ -26,6 +27,21 @@ try:
 except ImportError:
     warnings.warn("streamlit-audiorec not available. Using file upload only.")
     AUDIOREC_AVAILABLE = False
+
+# Import TTS libraries
+try:
+    import pyttsx3
+    PYTTSX3_AVAILABLE = True
+except ImportError:
+    PYTTSX3_AVAILABLE = False
+    warnings.warn("pyttsx3 not available. TTS will use fallback mode.")
+
+try:
+    from gtts import gTTS
+    GTTS_AVAILABLE = True
+except ImportError:
+    GTTS_AVAILABLE = False
+    warnings.warn("gTTS not available. Online TTS fallback disabled.")
 
 
 class AudioProcessor:
@@ -72,6 +88,40 @@ class AudioProcessor:
             st.error(f"Failed to load models: {e}")
             st.info("Please run: python scripts/download_models.py")
     
+    def generate_standard_audio(self, text):
+        """Generate standard pronunciation audio using TTS."""
+        output_path = Path("temp_audio") / "standard_pronunciation.mp3"
+        output_path.parent.mkdir(exist_ok=True)
+        
+        try:
+            # Try pyttsx3 first (offline)
+            if PYTTSX3_AVAILABLE:
+                engine = pyttsx3.init()
+                # Set properties for better quality
+                engine.setProperty('rate', 150)  # Speed of speech
+                engine.setProperty('volume', 0.9)
+                
+                # Save to file
+                engine.save_to_file(text, str(output_path))
+                engine.runAndWait()
+                
+                if output_path.exists():
+                    return str(output_path)
+            
+            # Fallback to gTTS (requires internet)
+            if GTTS_AVAILABLE:
+                tts = gTTS(text=text, lang='en', slow=False)
+                tts.save(str(output_path))
+                
+                if output_path.exists():
+                    return str(output_path)
+            
+            return None
+            
+        except Exception as e:
+            warnings.warn(f"TTS generation failed: {e}")
+            return None
+    
     def clone_voice(self, user_audio_path, standard_text):
         """Clone voice using IndexTTS2."""
         if self.voice_cloner and self.voice_cloner.is_available():
@@ -87,7 +137,8 @@ class AudioProcessor:
             if success:
                 return str(output_path)
         
-        return None
+        # Fallback to standard TTS if voice cloning not available
+        return self.generate_standard_audio(standard_text)
     
     def analyze_pronunciation(self, user_audio_file, reference_text):
         """Core pronunciation analysis."""
@@ -211,8 +262,17 @@ with col1:
     
     st.markdown("#### 🔊 Standard Audio")
     if st.button("▶️ Play Standard (Native)"):
-        st.info("🎵 Playing standard pronunciation...")
-        st.caption("(In production, this plays pre-recorded native audio)")
+        with st.spinner("Generating standard pronunciation..."):
+            audio_path = st.session_state.processor.generate_standard_audio(target_text)
+            
+            if audio_path and Path(audio_path).exists():
+                st.success("✅ Audio generated!")
+                st.audio(audio_path)
+            else:
+                st.warning("⚠️ TTS not available. Please install pyttsx3 or gTTS:")
+                st.code("pip install pyttsx3 gTTS", language="bash")
+                st.info("📝 Standard pronunciation text:")
+                st.markdown(f"**{target_text}**")
     
     st.markdown("#### ✨ AI Voice Clone")
     st.caption("Hear this sentence in YOUR voice!")
@@ -225,12 +285,12 @@ with col1:
                     target_text
                 )
                 
-                if cloned_path:
+                if cloned_path and Path(cloned_path).exists():
                     st.success("✅ Generation Complete!")
                     st.audio(cloned_path)
                 else:
-                    st.warning("Voice cloning not available. Using fallback mode.")
-                    st.caption("Install IndexTTS2 for voice cloning feature")
+                    st.warning("⚠️ Voice cloning not available.")
+                    st.info("📌 Using standard TTS as fallback. Install IndexTTS2 for true voice cloning.")
         else:
             st.error("⚠️ Please record or upload audio first!")
 
@@ -369,7 +429,14 @@ if "last_result" in st.session_state:
         """
     html_content += "</div>"
     
-    st.markdown(html_content, unsafe_allow_html=True)
+    # Calculate dynamic height based on number of words
+    num_words = len(result['word_scores'])
+    # Estimate: ~40px per word, with line wrapping consideration
+    # Average 8-10 words per line, with 60px line height
+    estimated_lines = max(1, (num_words // 8) + 1)
+    height = max(100, min(400, estimated_lines * 70))
+    
+    st.components.v1.html(html_content, height=height)
     
     # Issues and coaching tips
     st.markdown("### 💡 Coaching Tips & Issues")

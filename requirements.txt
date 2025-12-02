@@ -46,6 +46,10 @@ pyyaml>=6.0
 transformers>=4.30.0,<4.46.0
 phonemizer>=3.2.0
 
+# Text-to-Speech (TTS)
+pyttsx3>=2.90  # Offline TTS
+gTTS>=2.3.0    # Online TTS fallback
+
 # Note: IndexTTS2 requires separate installation from GitHub
 # Install with: pip install git+https://github.com/index-tts/index-tts.git
 # Or clone and install manually: git clone https://github.com/index-tts/index-tts.git && cd index-tts && pip install -e .

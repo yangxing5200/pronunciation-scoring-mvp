@@ -44,9 +44,17 @@ class VoiceCloner:
         try:
             # Try to import IndexTTS2
             # Note: This will fail if IndexTTS2 is not installed
+            print("Attempting to load IndexTTS2...")
             from indextts.infer_v2 import IndexTTS2
             
             config_path = self.model_dir / "config.yaml"
+            
+            if not self.model_dir.exists():
+                warnings.warn(
+                    f"IndexTTS2 model directory not found at {self.model_dir}. "
+                    f"Voice cloning will use fallback mode."
+                )
+                return
             
             if not config_path.exists():
                 warnings.warn(
@@ -55,6 +63,7 @@ class VoiceCloner:
                 )
                 return
             
+            print(f"Loading IndexTTS2 from {self.model_dir}...")
             self.model = IndexTTS2(
                 cfg_path=str(config_path),
                 model_dir=str(self.model_dir),
@@ -62,7 +71,7 @@ class VoiceCloner:
                 device=self.device
             )
             self.model_available = True
-            print(f"IndexTTS2 loaded successfully on {self.device}")
+            print(f"✓ IndexTTS2 loaded successfully on {self.device}")
             
         except ImportError:
             warnings.warn(
@@ -72,6 +81,8 @@ class VoiceCloner:
             )
         except Exception as e:
             warnings.warn(f"Failed to load IndexTTS2: {e}. Using fallback mode.")
+            import traceback
+            traceback.print_exc()
     
     def clone_voice(
         self,
@@ -104,21 +115,32 @@ class VoiceCloner:
         if self.model_available and self.model is not None:
             try:
                 # Use actual IndexTTS2 model
+                print(f"IndexTTS2: Generating speech for '{text}' using reference {reference_audio_path.name}")
                 self.model.infer(
                     text=text,
                     ref_audio_path=str(reference_audio_path),
                     output_path=str(output_path),
                     language=language
                 )
-                return True
+                
+                # Verify output was created
+                if output_path.exists() and output_path.stat().st_size > 0:
+                    print(f"IndexTTS2: Successfully generated audio at {output_path}")
+                    return True
+                else:
+                    warnings.warn(f"IndexTTS2: Output file not created or empty")
+                    return False
+                    
             except Exception as e:
                 warnings.warn(f"IndexTTS2 inference failed: {e}")
+                import traceback
+                traceback.print_exc()
                 return False
         else:
-            # Fallback: just copy reference audio or use pre-generated audio
+            # Model not available
             warnings.warn(
-                f"Voice cloning not available. Would generate: '{text}' "
-                f"using reference {reference_audio_path.name}"
+                f"Voice cloning not available. IndexTTS2 model not loaded. "
+                f"Would generate: '{text}' using reference {reference_audio_path.name}"
             )
             return False
     
