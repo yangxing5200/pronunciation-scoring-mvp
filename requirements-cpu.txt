@@ -19,12 +19,12 @@ pydub>=0.25.0
 
 # Speech recognition and processing
 openai-whisper>=20231117
-faster-whisper==1.0.1
+faster-whisper>=1.0.0
 
 # PyTorch CPU version
-torch==2.1.2
-torchaudio==2.1.2
-torchvision==0.16.2
+torch==2.2.2
+torchaudio==2.2.2
+torchvision==0.17.2
 
 # Audio recording component
 streamlit-audiorec>=0.0.4
