@@ -178,14 +178,17 @@ class PronunciationScorer:
                     status = "correct"
             
             # If no exact match, try positional comparison
-            if score == 0 and i < len(trans_words):
-                # Check similarity with word at same position
+            if score == 0 and i < len(trans_words) and i not in matched_indices:
+                # Check similarity with word at same position (only if not already matched)
                 similarity = self.comparator.calculate_word_similarity(
                     ref_word,
                     trans_words[i]
                 )
                 score = int(similarity * 100)
                 status = "partial" if score > 50 else "incorrect"
+                # Mark position as matched if score is good enough
+                if score >= 50:
+                    matched_indices.add(i)
             
             # If still no good match, try finding best match in remaining words
             if score < 50:

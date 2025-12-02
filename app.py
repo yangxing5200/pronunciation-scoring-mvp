@@ -225,7 +225,7 @@ class AudioProcessor:
                     pre_extracted[word_index] = str(output_path)
                     
                     # Also add to cache for backward compatibility
-                    cache_key = f"{audio_path}_{word_index}"
+                    cache_key = f"{audio_path}|{word_index}"
                     self.word_audio_cache[cache_key] = str(output_path)
                     
                 except Exception as e:
@@ -250,7 +250,7 @@ class AudioProcessor:
             Path to the extracted audio segment, or None if extraction fails
         """
         # Check cache first
-        cache_key = f"{audio_path}_{word_index}"
+        cache_key = f"{audio_path}|{word_index}"
         if cache_key in self.word_audio_cache:
             return self.word_audio_cache[cache_key]
         
