@@ -7,6 +7,7 @@ import warnings
 import tempfile
 from pydub import AudioSegment
 import base64
+import uuid
 
 # Import core modules
 try:
@@ -192,6 +193,19 @@ class AudioProcessor:
         if cache_key in self.word_audio_cache:
             return self.word_audio_cache[cache_key]
         
+        # Limit cache size to prevent memory issues
+        if len(self.word_audio_cache) > 100:
+            # Remove oldest entries (first 20)
+            for _ in range(20):
+                if self.word_audio_cache:
+                    oldest_key = next(iter(self.word_audio_cache))
+                    old_path = self.word_audio_cache.pop(oldest_key)
+                    # Clean up old file
+                    try:
+                        Path(old_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        
         try:
             # Get the word timing
             if word_index >= len(word_timestamps):
@@ -211,10 +225,10 @@ class AudioProcessor:
             # Extract the segment
             word_segment = audio[start_ms:end_ms]
             
-            # Save to temp file
+            # Save to temp file with unique name
             output_dir = Path("temp_audio") / "word_segments"
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / f"word_{word_index}_{int(time.time()*1000)}.wav"
+            output_path = output_dir / f"word_{word_index}_{uuid.uuid4().hex[:8]}.wav"
             
             word_segment.export(str(output_path), format="wav")
             
