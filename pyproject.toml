@@ -32,7 +32,7 @@ dependencies = [
     "protobuf>=4.25.0,<5.0.0",
     "numpy==1.26.4",
     "scipy>=1.11.0,<1.14.0",
-    "librosa==0.10.1",
+    "librosa>=0.10.1,<0.11.0",
     "soundfile>=0.12.0",
     "pydub>=0.25.0",
     "openai-whisper>=20231117",
@@ -53,8 +53,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # GPU support with CUDA 11.8
+# Note: Install using requirements-cuda.txt which specifies the PyTorch index URL
 cuda = [
-    "torch==2.2.2",  # Will be installed from PyTorch index
+    "torch==2.2.2",
     "torchaudio==2.2.2",
     "torchvision==0.17.2",
 ]
@@ -73,9 +74,6 @@ Homepage = "https://github.com/yangxing5200/pronunciation-scoring-mvp"
 Repository = "https://github.com/yangxing5200/pronunciation-scoring-mvp"
 Documentation = "https://github.com/yangxing5200/pronunciation-scoring-mvp/blob/main/README.md"
 Issues = "https://github.com/yangxing5200/pronunciation-scoring-mvp/issues"
-
-[project.scripts]
-pronunciation-scoring = "app:main"
 
 [tool.setuptools]
 packages = ["core"]
