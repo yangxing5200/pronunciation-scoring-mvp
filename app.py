@@ -8,6 +8,7 @@ import tempfile
 from pydub import AudioSegment
 import base64
 import uuid
+import json
 
 # Import core modules
 try:
@@ -174,7 +175,67 @@ class AudioProcessor:
         result['user_audio_path'] = str(temp_audio_path)
         result['word_timestamps'] = transcription["words"]
         
+        # Pre-extract all word audio segments for better performance
+        result['pre_extracted_words'] = self._pre_extract_all_words(
+            str(temp_audio_path),
+            transcription["words"]
+        )
+        
         return result
+    
+    def _pre_extract_all_words(self, audio_path, word_timestamps):
+        """
+        Pre-extract all word audio segments immediately after analysis.
+        
+        Args:
+            audio_path: Path to the full audio file
+            word_timestamps: List of word timing information from Whisper
+        
+        Returns:
+            Dictionary mapping word indices to extracted audio paths
+        """
+        pre_extracted = {}
+        
+        try:
+            # Load the audio file once
+            audio = AudioSegment.from_wav(audio_path)
+            
+            # Create output directory
+            output_dir = Path("temp_audio") / "word_segments"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Extract each word
+            for word_index, word_info in enumerate(word_timestamps):
+                try:
+                    start_time = word_info.get('start', 0.0)
+                    end_time = word_info.get('end', 0.0)
+                    
+                    # Convert seconds to milliseconds
+                    start_ms = int(start_time * 1000)
+                    end_ms = int(end_time * 1000)
+                    
+                    # Extract the segment
+                    word_segment = audio[start_ms:end_ms]
+                    
+                    # Save to temp file with unique name
+                    output_path = output_dir / f"word_{word_index}_{uuid.uuid4().hex[:8]}.wav"
+                    word_segment.export(str(output_path), format="wav")
+                    
+                    # Store the path
+                    pre_extracted[word_index] = str(output_path)
+                    
+                    # Also add to cache for backward compatibility
+                    cache_key = f"{audio_path}|{word_index}"
+                    self.word_audio_cache[cache_key] = str(output_path)
+                    
+                except Exception as e:
+                    warnings.warn(f"Failed to extract word {word_index}: {e}")
+                    continue
+            
+        except Exception as e:
+            warnings.warn(f"Failed to pre-extract word audio: {e}")
+        
+        return pre_extracted
     
     def extract_word_audio(self, audio_path, word_index, word_timestamps):
         """
@@ -189,7 +250,7 @@ class AudioProcessor:
             Path to the extracted audio segment, or None if extraction fails
         """
         # Check cache first
-        cache_key = f"{audio_path}_{word_index}"
+        cache_key = f"{audio_path}|{word_index}"
         if cache_key in self.word_audio_cache:
             return self.word_audio_cache[cache_key]
         
@@ -240,6 +301,41 @@ class AudioProcessor:
         except Exception as e:
             warnings.warn(f"Failed to extract word audio: {e}")
             return None
+
+
+def load_practice_sentences():
+    """Load practice sentences from JSON file."""
+    sentences_file = Path(__file__).parent / "data" / "sentences.json"
+    
+    try:
+        with open(sentences_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        warnings.warn(f"Sentences file not found: {sentences_file}")
+        # Return default English sentences as fallback
+        return {
+            "English": {
+                "Hello World": {
+                    "text": "Hello world, this is a test.",
+                    "phonetics": "/həˈloʊ wɜːrld ðɪs ɪz ə tɛst/",
+                    "level": 1
+                },
+                "Weather Talk": {
+                    "text": "The weather is beautiful today.",
+                    "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ/",
+                    "level": 2
+                },
+                "Technology": {
+                    "text": "Artificial intelligence is transforming the world.",
+                    "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz trænsˈfɔrmɪŋ ðə wɜrld/",
+                    "level": 3
+                }
+            },
+            "Chinese": {}
+        }
+    except Exception as e:
+        warnings.warn(f"Failed to load sentences: {e}")
+        return {"English": {}, "Chinese": {}}
 
 
 # === Streamlit UI ===
@@ -304,24 +400,21 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("📝 Challenge Card")
     
-    # Sample challenges
-    challenges = {
-        "Hello World": {
-            "text": "Hello world, this is a test.",
-            "phonetics": "/həˈloʊ wɜːrld ðɪs ɪz ə tɛst/",
-            "level": 1
-        },
-        "Weather Talk": {
-            "text": "The weather is beautiful today.",
-            "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ/",
-            "level": 2
-        },
-        "Technology": {
-            "text": "Artificial intelligence is transforming the world.",
-            "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz trænsˈfɔrmɪŋ ðə wɜrld/",
-            "level": 3
+    # Load practice sentences from JSON
+    all_sentences = load_practice_sentences()
+    
+    # Filter by selected language
+    challenges = all_sentences.get(language, {})
+    
+    if not challenges:
+        st.warning(f"No practice sentences available for {language}")
+        challenges = {
+            "Default": {
+                "text": "No sentences available.",
+                "phonetics": "",
+                "level": 1
+            }
         }
-    }
     
     selected_challenge = st.selectbox(
         "Choose Challenge",
@@ -523,21 +616,27 @@ if "last_result" in st.session_state:
                         use_container_width=True,
                         help=f"Score: {score}/100 - Click to hear your pronunciation"
                     ):
-                        # Extract and play word audio
-                        if user_audio_path and word_timestamps:
+                        # Use pre-extracted audio if available, otherwise extract on demand
+                        pre_extracted_words = result.get('pre_extracted_words', {})
+                        
+                        if word_idx in pre_extracted_words:
+                            # Use pre-extracted audio for better performance
+                            word_audio_path = pre_extracted_words[word_idx]
+                        elif user_audio_path and word_timestamps:
+                            # Fallback: extract on demand
                             word_audio_path = st.session_state.processor.extract_word_audio(
                                 user_audio_path,
                                 word_idx,
                                 word_timestamps
                             )
-                            
-                            if word_audio_path and Path(word_audio_path).exists():
-                                st.audio(word_audio_path)
-                                st.success(f"Playing: '{word}'")
-                            else:
-                                st.error(f"Could not extract audio for '{word}'")
                         else:
-                            st.warning("Word audio not available")
+                            word_audio_path = None
+                        
+                        if word_audio_path and Path(word_audio_path).exists():
+                            st.audio(word_audio_path)
+                            st.success(f"Playing: '{word}'")
+                        else:
+                            st.error(f"Could not extract audio for '{word}'")
     
     # Add custom CSS for better button styling
     st.markdown("""

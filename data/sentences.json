@@ -1,0 +1,56 @@
+{
+  "English": {
+    "Hello World": {
+      "text": "Hello world, this is a test.",
+      "phonetics": "/həˈloʊ wɜːrld ðɪs ɪz ə tɛst/",
+      "level": 1
+    },
+    "Weather Talk": {
+      "text": "The weather is beautiful today.",
+      "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ/",
+      "level": 2
+    },
+    "Technology": {
+      "text": "Artificial intelligence is transforming the world.",
+      "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz trænsˈfɔrmɪŋ ðə wɜrld/",
+      "level": 3
+    },
+    "Daily Life": {
+      "text": "I usually wake up at seven in the morning.",
+      "phonetics": "/aɪ ˈjuːʒuəli weɪk ʌp æt ˈsɛvən ɪn ðə ˈmɔːrnɪŋ/",
+      "level": 1
+    },
+    "Travel": {
+      "text": "The airport is about thirty minutes away from here.",
+      "phonetics": "/ðə ˈɛrpɔːrt ɪz əˈbaʊt ˈθɜːrti ˈmɪnɪts əˈweɪ frʌm hɪr/",
+      "level": 2
+    }
+  },
+  "Chinese": {
+    "你好世界": {
+      "text": "你好，这是一个测试。",
+      "phonetics": "nǐ hǎo, zhè shì yí gè cè shì.",
+      "level": 1
+    },
+    "天气话题": {
+      "text": "今天的天气真好。",
+      "phonetics": "jīn tiān de tiān qì zhēn hǎo.",
+      "level": 1
+    },
+    "科技发展": {
+      "text": "人工智能正在改变世界。",
+      "phonetics": "rén gōng zhì néng zhèng zài gǎi biàn shì jiè.",
+      "level": 2
+    },
+    "日常生活": {
+      "text": "我每天早上七点起床。",
+      "phonetics": "wǒ měi tiān zǎo shang qī diǎn qǐ chuáng.",
+      "level": 1
+    },
+    "旅行出行": {
+      "text": "机场离这里大约三十分钟。",
+      "phonetics": "jī chǎng lí zhè lǐ dà yuē sān shí fēn zhōng.",
+      "level": 2
+    }
+  }
+}
