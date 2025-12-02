@@ -1,0 +1,65 @@
+# Pronunciation Scoring MVP Configuration
+
+# Whisper Model Settings
+whisper:
+  model_size: "base"  # Options: tiny, base, small, medium, large
+  model_dir: "models/whisper"
+  language: "en"
+  device: "cpu"  # Options: cpu, cuda
+
+# Audio Processing Settings
+audio:
+  sample_rate: 16000  # Hz
+  channels: 1  # Mono
+  max_recording_seconds: 5
+
+# Scoring Weights (must sum to 1.0)
+scoring:
+  accuracy_weight: 0.5
+  fluency_weight: 0.25
+  prosody_weight: 0.25
+
+# Thresholds for color-coded feedback
+thresholds:
+  excellent: 90  # Green
+  good: 75       # Yellow
+  # Below 'good' is Red
+
+# Voice Cloning Settings
+voice_cloning:
+  enabled: true
+  model_dir: "models/indextts2"
+  device: "cpu"
+  use_fp16: false
+
+# Standard Audio Library
+standard_audio:
+  directory: "assets/standard_audio"
+  format: "wav"
+  sample_rate: 16000
+
+# UI Settings
+ui:
+  page_title: "AI Pronunciation Coach MVP"
+  layout: "wide"
+  show_phonetics: true
+  max_issues_displayed: 3
+
+# Temporary Files
+temp:
+  audio_directory: "temp_audio"
+  cleanup_on_exit: true
+
+# Advanced Settings
+advanced:
+  # Enable detailed logging
+  verbose: false
+  
+  # Number of MFCC coefficients for alignment
+  n_mfcc: 13
+  
+  # DTW distance normalization
+  normalize_dtw: true
+  
+  # Phoneme segmentation method
+  segmentation_method: "word_based"  # Options: word_based, silence_based
