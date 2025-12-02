@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import warnings
 import tempfile
-from pydub import AudioSegment
 import base64
 import uuid
 import json
@@ -56,7 +55,6 @@ class AudioProcessor:
         self.transcriber = None
         self.scorer = None
         self.voice_cloner = None
-        self.word_audio_cache = {}  # Cache for extracted word audio segments
         
     def load_models(self):
         """Load all AI models."""
@@ -175,132 +173,7 @@ class AudioProcessor:
         result['user_audio_path'] = str(temp_audio_path)
         result['word_timestamps'] = transcription["words"]
         
-        # Pre-extract all word audio segments for better performance
-        result['pre_extracted_words'] = self._pre_extract_all_words(
-            str(temp_audio_path),
-            transcription["words"]
-        )
-        
         return result
-    
-    def _pre_extract_all_words(self, audio_path, word_timestamps):
-        """
-        Pre-extract all word audio segments immediately after analysis.
-        
-        Args:
-            audio_path: Path to the full audio file
-            word_timestamps: List of word timing information from Whisper
-        
-        Returns:
-            Dictionary mapping word indices to extracted audio paths
-        """
-        pre_extracted = {}
-        
-        try:
-            # Load the audio file once
-            audio = AudioSegment.from_wav(audio_path)
-            
-            # Create output directory
-            output_dir = Path("temp_audio") / "word_segments"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Extract each word
-            for word_index, word_info in enumerate(word_timestamps):
-                try:
-                    start_time = word_info.get('start', 0.0)
-                    end_time = word_info.get('end', 0.0)
-                    
-                    # Convert seconds to milliseconds
-                    start_ms = int(start_time * 1000)
-                    end_ms = int(end_time * 1000)
-                    
-                    # Extract the segment
-                    word_segment = audio[start_ms:end_ms]
-                    
-                    # Save to temp file with unique name
-                    output_path = output_dir / f"word_{word_index}_{uuid.uuid4().hex[:8]}.wav"
-                    word_segment.export(str(output_path), format="wav")
-                    
-                    # Store the path
-                    pre_extracted[word_index] = str(output_path)
-                    
-                    # Also add to cache for backward compatibility
-                    cache_key = f"{audio_path}|{word_index}"
-                    self.word_audio_cache[cache_key] = str(output_path)
-                    
-                except Exception as e:
-                    warnings.warn(f"Failed to extract word {word_index}: {e}")
-                    continue
-            
-        except Exception as e:
-            warnings.warn(f"Failed to pre-extract word audio: {e}")
-        
-        return pre_extracted
-    
-    def extract_word_audio(self, audio_path, word_index, word_timestamps):
-        """
-        Extract audio segment for a specific word.
-        
-        Args:
-            audio_path: Path to the full audio file
-            word_index: Index of the word to extract
-            word_timestamps: List of word timing information from Whisper
-        
-        Returns:
-            Path to the extracted audio segment, or None if extraction fails
-        """
-        # Check cache first
-        cache_key = f"{audio_path}|{word_index}"
-        if cache_key in self.word_audio_cache:
-            return self.word_audio_cache[cache_key]
-        
-        # Limit cache size to prevent memory issues
-        if len(self.word_audio_cache) > 100:
-            # Remove oldest entries (first 20)
-            for _ in range(20):
-                if self.word_audio_cache:
-                    oldest_key = next(iter(self.word_audio_cache))
-                    old_path = self.word_audio_cache.pop(oldest_key)
-                    # Clean up old file
-                    try:
-                        Path(old_path).unlink(missing_ok=True)
-                    except Exception:
-                        pass
-        
-        try:
-            # Get the word timing
-            if word_index >= len(word_timestamps):
-                return None
-            
-            word_info = word_timestamps[word_index]
-            start_time = word_info.get('start', 0.0)
-            end_time = word_info.get('end', 0.0)
-            
-            # Load the audio file
-            audio = AudioSegment.from_wav(audio_path)
-            
-            # Convert seconds to milliseconds
-            start_ms = int(start_time * 1000)
-            end_ms = int(end_time * 1000)
-            
-            # Extract the segment
-            word_segment = audio[start_ms:end_ms]
-            
-            # Save to temp file with unique name
-            output_dir = Path("temp_audio") / "word_segments"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / f"word_{word_index}_{uuid.uuid4().hex[:8]}.wav"
-            
-            word_segment.export(str(output_path), format="wav")
-            
-            # Cache the result
-            self.word_audio_cache[cache_key] = str(output_path)
-            
-            return str(output_path)
-            
-        except Exception as e:
-            warnings.warn(f"Failed to extract word audio: {e}")
-            return None
 
 
 def load_practice_sentences():
@@ -571,85 +444,68 @@ if "last_result" in st.session_state:
     word_timestamps = result.get('word_timestamps', [])
     user_audio_path = result.get('user_audio_path', None)
     
-    # Display words as clickable buttons in a grid
+    # Display words using JavaScript and HTML5 Audio API
     word_scores = result['word_scores']
     
-    # Create a container for the words
-    cols_per_row = 6
-    for i in range(0, len(word_scores), cols_per_row):
-        cols = st.columns(cols_per_row)
+    if user_audio_path and Path(user_audio_path).exists():
+        # Read audio file and convert to base64
+        with open(user_audio_path, "rb") as f:
+            audio_bytes = f.read()
+        audio_base64 = base64.b64encode(audio_bytes).decode()
         
-        for j, col in enumerate(cols):
-            word_idx = i + j
-            if word_idx < len(word_scores):
-                w = word_scores[word_idx]
-                score = w['score']
-                word = w['word']
-                
-                # Color coding
-                if score >= 90:
-                    color = "green"
-                elif score >= 75:
-                    color = "yellow"
-                else:
-                    color = "red"
-                
-                # Create a unique key for each button
-                button_key = f"word_btn_{word_idx}_{word}"
-                
-                with col:
-                    # Use custom CSS to style the button based on score
-                    if score >= 90:
-                        button_type = "secondary"
-                        emoji = "✅"
-                    elif score >= 75:
-                        button_type = "secondary"
-                        emoji = "⚠️"
-                    else:
-                        button_type = "secondary"
-                        emoji = "❌"
-                    
-                    # Create button with word and score
-                    if st.button(
-                        f"{emoji} {word}\n{score}",
-                        key=button_key,
-                        use_container_width=True,
-                        help=f"Score: {score}/100 - Click to hear your pronunciation"
-                    ):
-                        # Use pre-extracted audio if available, otherwise extract on demand
-                        pre_extracted_words = result.get('pre_extracted_words', {})
-                        
-                        if word_idx in pre_extracted_words:
-                            # Use pre-extracted audio for better performance
-                            word_audio_path = pre_extracted_words[word_idx]
-                        elif user_audio_path and word_timestamps:
-                            # Fallback: extract on demand
-                            word_audio_path = st.session_state.processor.extract_word_audio(
-                                user_audio_path,
-                                word_idx,
-                                word_timestamps
-                            )
-                        else:
-                            word_audio_path = None
-                        
-                        if word_audio_path and Path(word_audio_path).exists():
-                            st.audio(word_audio_path)
-                            st.success(f"Playing: '{word}'")
-                        else:
-                            st.error(f"Could not extract audio for '{word}'")
-    
-    # Add custom CSS for better button styling
-    st.markdown("""
-    <style>
-    div[data-testid="column"] button {
-        font-size: 14px !important;
-        padding: 8px !important;
-        white-space: pre-wrap !important;
-        height: auto !important;
-        min-height: 60px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        # Build HTML for word buttons
+        word_html = ""
+        for idx, w in enumerate(word_scores):
+            word = w['word']
+            score = w['score']
+            
+            # Get time stamps
+            if idx < len(word_timestamps):
+                start_time = word_timestamps[idx].get('start', 0)
+                end_time = word_timestamps[idx].get('end', 0)
+            else:
+                start_time = 0
+                end_time = 0
+            
+            # Color coding based on score
+            if score >= 90:
+                color = "#28a745"  # green
+                emoji = "✅"
+            elif score >= 75:
+                color = "#ffc107"  # yellow
+                emoji = "⚠️"
+            else:
+                color = "#dc3545"  # red
+                emoji = "❌"
+            
+            word_html += f'''
+            <button onclick="playWord({start_time}, {end_time})" 
+                    style="margin:4px; padding:8px 12px; border-radius:8px; 
+                           border:2px solid {color}; background:white; 
+                           cursor:pointer; font-size:14px;">
+                {emoji} {word}<br><small>{score}</small>
+            </button>
+            '''
+        
+        # Render HTML component with audio player and JavaScript
+        st.components.v1.html(f'''
+        <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
+        <script>
+            let stopTimeout = null;
+            function playWord(startTime, endTime) {{
+                const audio = document.getElementById('user-recording');
+                if (stopTimeout) clearTimeout(stopTimeout);
+                audio.currentTime = startTime;
+                audio.play();
+                stopTimeout = setTimeout(() => audio.pause(), (endTime - startTime) * 1000);
+            }}
+        </script>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            {word_html}
+        </div>
+        ''', height=200)
+    else:
+        st.warning("Audio file not available for word playback.")
     
     # Issues and coaching tips
     st.markdown("### 💡 Coaching Tips & Issues")
