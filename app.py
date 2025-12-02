@@ -459,12 +459,19 @@ if "last_result" in st.session_state:
             word = w['word']
             score = w['score']
             
-            # Get time stamps
+            # Get time stamps and validate they are numeric
             if idx < len(word_timestamps):
                 start_time = word_timestamps[idx].get('start', 0)
                 end_time = word_timestamps[idx].get('end', 0)
-                # Skip words with invalid timestamps
-                if start_time >= end_time:
+                # Validate timestamps are numeric
+                try:
+                    start_time = float(start_time)
+                    end_time = float(end_time)
+                    # Skip words with invalid timestamps
+                    if start_time >= end_time or start_time < 0:
+                        start_time = -1
+                        end_time = -1
+                except (TypeError, ValueError):
                     start_time = -1
                     end_time = -1
             else:
@@ -472,16 +479,23 @@ if "last_result" in st.session_state:
                 start_time = -1
                 end_time = -1
             
-            # Color coding based on score
-            if score >= 90:
-                color = "#28a745"  # green
-                emoji = "✅"
-            elif score >= 75:
-                color = "#ffc107"  # yellow
-                emoji = "⚠️"
-            else:
-                color = "#dc3545"  # red
-                emoji = "❌"
+            # Color coding based on score (using safe predefined colors)
+            # Validate score is numeric for safe color selection
+            try:
+                score_val = float(score)
+                if score_val >= 90:
+                    color = "#28a745"  # green
+                    emoji = "✅"
+                elif score_val >= 75:
+                    color = "#ffc107"  # yellow
+                    emoji = "⚠️"
+                else:
+                    color = "#dc3545"  # red
+                    emoji = "❌"
+            except (TypeError, ValueError):
+                # Fallback color for invalid scores
+                color = "#6c757d"  # gray
+                emoji = "❓"
             
             # Escape word and emoji to prevent XSS
             word_escaped = html.escape(str(word))
