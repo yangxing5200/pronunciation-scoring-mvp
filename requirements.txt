@@ -1,0 +1,14 @@
+streamlit
+openai-whisper
+torch
+torchaudio
+librosa
+soundfile
+numpy
+scipy
+jiwer
+matplotlib
+dtw-python
+praat-parselmouth
+# OpenVoice 和相关依赖可能需要单独安装，这里列出基础的
+# git+https://github.com/myshell-ai/OpenVoice.git
