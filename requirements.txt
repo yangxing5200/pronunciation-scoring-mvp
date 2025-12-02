@@ -1,14 +1,38 @@
-streamlit
-openai-whisper
-torch
-torchaudio
-librosa
-soundfile
-numpy
-scipy
-jiwer
-matplotlib
-dtw-python
-praat-parselmouth
-# OpenVoice 和相关依赖可能需要单独安装，这里列出基础的
-# git+https://github.com/myshell-ai/OpenVoice.git
+# Core dependencies
+streamlit>=1.28.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Audio processing
+librosa>=0.10.0
+soundfile>=0.12.0
+pydub>=0.25.0
+
+# Speech recognition and processing
+openai-whisper>=20231117
+faster-whisper>=0.10.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Audio recording component
+streamlit-audiorec>=0.0.4
+
+# Phoneme alignment and analysis
+dtw-python>=1.3.0
+praat-parselmouth>=0.4.3
+
+# Text comparison
+python-Levenshtein>=0.21.0
+jiwer>=3.0.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# IndexTTS2 dependencies (will be installed from github)
+# Note: IndexTTS2 requires separate installation
+# For development: pip install git+https://github.com/index-tts/index-tts.git
+
+# Additional utilities
+pyyaml>=6.0
+transformers>=4.30.0
+phonemizer>=3.2.0
