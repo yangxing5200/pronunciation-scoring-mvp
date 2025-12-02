@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import warnings
 import tempfile
+from pydub import AudioSegment
+import base64
 
 # Import core modules
 try:
@@ -52,6 +54,7 @@ class AudioProcessor:
         self.transcriber = None
         self.scorer = None
         self.voice_cloner = None
+        self.word_audio_cache = {}  # Cache for extracted word audio segments
         
     def load_models(self):
         """Load all AI models."""
@@ -166,7 +169,63 @@ class AudioProcessor:
             reference_audio_path=None  # Could add reference audio
         )
         
+        # Store audio path and word timestamps for word playback
+        result['user_audio_path'] = str(temp_audio_path)
+        result['word_timestamps'] = transcription["words"]
+        
         return result
+    
+    def extract_word_audio(self, audio_path, word_index, word_timestamps):
+        """
+        Extract audio segment for a specific word.
+        
+        Args:
+            audio_path: Path to the full audio file
+            word_index: Index of the word to extract
+            word_timestamps: List of word timing information from Whisper
+        
+        Returns:
+            Path to the extracted audio segment, or None if extraction fails
+        """
+        # Check cache first
+        cache_key = f"{audio_path}_{word_index}"
+        if cache_key in self.word_audio_cache:
+            return self.word_audio_cache[cache_key]
+        
+        try:
+            # Get the word timing
+            if word_index >= len(word_timestamps):
+                return None
+            
+            word_info = word_timestamps[word_index]
+            start_time = word_info.get('start', 0.0)
+            end_time = word_info.get('end', 0.0)
+            
+            # Load the audio file
+            audio = AudioSegment.from_wav(audio_path)
+            
+            # Convert seconds to milliseconds
+            start_ms = int(start_time * 1000)
+            end_ms = int(end_time * 1000)
+            
+            # Extract the segment
+            word_segment = audio[start_ms:end_ms]
+            
+            # Save to temp file
+            output_dir = Path("temp_audio") / "word_segments"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / f"word_{word_index}_{int(time.time()*1000)}.wav"
+            
+            word_segment.export(str(output_path), format="wav")
+            
+            # Cache the result
+            self.word_audio_cache[cache_key] = str(output_path)
+            
+            return str(output_path)
+            
+        except Exception as e:
+            warnings.warn(f"Failed to extract word audio: {e}")
+            return None
 
 
 # === Streamlit UI ===
@@ -399,46 +458,85 @@ if "last_result" in st.session_state:
     
     # Word-level feedback
     st.markdown("### 📖 Word-by-Word Feedback")
+    st.caption("Click on any word to hear your pronunciation of that word")
     
-    html_content = "<div style='font-size: 22px; line-height: 2.5; padding: 10px;'>"
-    for w in result['word_scores']:
-        score = w['score']
-        word = w['word']
+    # Get word timestamps if available
+    word_timestamps = result.get('word_timestamps', [])
+    user_audio_path = result.get('user_audio_path', None)
+    
+    # Display words as clickable buttons in a grid
+    word_scores = result['word_scores']
+    
+    # Create a container for the words
+    cols_per_row = 6
+    for i in range(0, len(word_scores), cols_per_row):
+        cols = st.columns(cols_per_row)
         
-        # Color coding
-        if score >= 90:
-            color = "#d4edda"  # Green
-            border = "#28a745"
-        elif score >= 75:
-            color = "#fff3cd"  # Yellow
-            border = "#ffc107"
-        else:
-            color = "#f8d7da"  # Red
-            border = "#dc3545"
-        
-        html_content += f"""
-        <span style='
-            background-color:{color}; 
-            border: 2px solid {border};
-            padding: 6px 12px; 
-            border-radius: 8px; 
-            margin: 4px;
-            display: inline-block;
-            font-weight: 500;
-        '>
-            {word} <small style='color: #666;'>{score}</small>
-        </span>
-        """
-    html_content += "</div>"
+        for j, col in enumerate(cols):
+            word_idx = i + j
+            if word_idx < len(word_scores):
+                w = word_scores[word_idx]
+                score = w['score']
+                word = w['word']
+                
+                # Color coding
+                if score >= 90:
+                    color = "green"
+                elif score >= 75:
+                    color = "yellow"
+                else:
+                    color = "red"
+                
+                # Create a unique key for each button
+                button_key = f"word_btn_{word_idx}_{word}"
+                
+                with col:
+                    # Use custom CSS to style the button based on score
+                    if score >= 90:
+                        button_type = "secondary"
+                        emoji = "✅"
+                    elif score >= 75:
+                        button_type = "secondary"
+                        emoji = "⚠️"
+                    else:
+                        button_type = "secondary"
+                        emoji = "❌"
+                    
+                    # Create button with word and score
+                    if st.button(
+                        f"{emoji} {word}\n{score}",
+                        key=button_key,
+                        use_container_width=True,
+                        help=f"Score: {score}/100 - Click to hear your pronunciation"
+                    ):
+                        # Extract and play word audio
+                        if user_audio_path and word_timestamps:
+                            word_audio_path = st.session_state.processor.extract_word_audio(
+                                user_audio_path,
+                                word_idx,
+                                word_timestamps
+                            )
+                            
+                            if word_audio_path and Path(word_audio_path).exists():
+                                st.audio(word_audio_path)
+                                st.success(f"Playing: '{word}'")
+                            else:
+                                st.error(f"Could not extract audio for '{word}'")
+                        else:
+                            st.warning("Word audio not available")
     
-    # Calculate dynamic height based on number of words
-    num_words = len(result['word_scores'])
-    # Estimate: ~40px per word, with line wrapping consideration
-    # Average 8-10 words per line, with 60px line height
-    estimated_lines = max(1, (num_words // 8) + 1)
-    height = max(100, min(400, estimated_lines * 70))
-    
-    st.components.v1.html(html_content, height=height)
+    # Add custom CSS for better button styling
+    st.markdown("""
+    <style>
+    div[data-testid="column"] button {
+        font-size: 14px !important;
+        padding: 8px !important;
+        white-space: pre-wrap !important;
+        height: auto !important;
+        min-height: 60px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Issues and coaching tips
     st.markdown("### 💡 Coaching Tips & Issues")

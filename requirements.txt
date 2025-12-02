@@ -50,6 +50,9 @@ phonemizer>=3.2.0
 pyttsx3>=2.90  # Offline TTS
 gTTS>=2.3.0    # Online TTS fallback
 
+# HTTP client for API requests
+requests>=2.31.0
+
 # Note: IndexTTS2 requires separate installation from GitHub
 # Install with: pip install git+https://github.com/index-tts/index-tts.git
 # Or clone and install manually: git clone https://github.com/index-tts/index-tts.git && cd index-tts && pip install -e .
