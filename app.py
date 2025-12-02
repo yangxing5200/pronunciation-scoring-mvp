@@ -90,12 +90,13 @@ class AudioProcessor:
     
     def generate_standard_audio(self, text):
         """Generate standard pronunciation audio using TTS."""
-        output_path = Path("temp_audio") / "standard_pronunciation.mp3"
-        output_path.parent.mkdir(exist_ok=True)
+        output_dir = Path("temp_audio")
+        output_dir.mkdir(exist_ok=True)
         
         try:
             # Try pyttsx3 first (offline)
             if PYTTSX3_AVAILABLE:
+                output_path = output_dir / "standard_pronunciation.wav"
                 engine = pyttsx3.init()
                 # Set properties for better quality
                 engine.setProperty('rate', 150)  # Speed of speech
@@ -110,6 +111,7 @@ class AudioProcessor:
             
             # Fallback to gTTS (requires internet)
             if GTTS_AVAILABLE:
+                output_path = output_dir / "standard_pronunciation.mp3"
                 tts = gTTS(text=text, lang='en', slow=False)
                 tts.save(str(output_path))
                 

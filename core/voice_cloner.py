@@ -5,6 +5,7 @@ Note: This is a placeholder implementation. IndexTTS2 requires separate installa
 
 import os
 import warnings
+import traceback
 from pathlib import Path
 from typing import Optional, Union
 
@@ -81,7 +82,6 @@ class VoiceCloner:
             )
         except Exception as e:
             warnings.warn(f"Failed to load IndexTTS2: {e}. Using fallback mode.")
-            import traceback
             traceback.print_exc()
     
     def clone_voice(
@@ -133,7 +133,6 @@ class VoiceCloner:
                     
             except Exception as e:
                 warnings.warn(f"IndexTTS2 inference failed: {e}")
-                import traceback
                 traceback.print_exc()
                 return False
         else:
