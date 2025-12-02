@@ -538,21 +538,42 @@ if "last_result" in st.session_state:
                     stopTimeout = null;
                 }}
                 
-                // Set playback position and start playing
-                audio.currentTime = startTime;
+                // Wait for audio to be ready before setting currentTime
+                function attemptPlayback() {{
+                    if (audio.readyState >= 2) {{
+                        // Audio has loaded enough data
+                        audio.currentTime = startTime;
+                        
+                        // Play with error handling
+                        audio.play().catch(function(error) {{
+                            console.error('Playback failed:', error);
+                            // Audio playback might fail if user hasn't interacted with the page yet
+                        }});
+                        
+                        // Schedule pause at end time
+                        const duration = (endTime - startTime) * 1000;
+                        stopTimeout = setTimeout(() => {{
+                            audio.pause();
+                            stopTimeout = null;
+                        }}, duration);
+                    }} else {{
+                        // Wait for audio to load
+                        audio.addEventListener('loadeddata', function onLoaded() {{
+                            audio.removeEventListener('loadeddata', onLoaded);
+                            audio.currentTime = startTime;
+                            audio.play().catch(function(error) {{
+                                console.error('Playback failed:', error);
+                            }});
+                            const duration = (endTime - startTime) * 1000;
+                            stopTimeout = setTimeout(() => {{
+                                audio.pause();
+                                stopTimeout = null;
+                            }}, duration);
+                        }});
+                    }}
+                }}
                 
-                // Play with error handling
-                audio.play().catch(function(error) {{
-                    console.error('Playback failed:', error);
-                    // Audio playback might fail if user hasn't interacted with the page yet
-                }});
-                
-                // Schedule pause at end time
-                const duration = (endTime - startTime) * 1000;
-                stopTimeout = setTimeout(() => {{
-                    audio.pause();
-                    stopTimeout = null;
-                }}, duration);
+                attemptPlayback();
             }}
         </script>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
