@@ -463,9 +463,14 @@ if "last_result" in st.session_state:
             if idx < len(word_timestamps):
                 start_time = word_timestamps[idx].get('start', 0)
                 end_time = word_timestamps[idx].get('end', 0)
+                # Skip words with invalid timestamps
+                if start_time >= end_time:
+                    start_time = -1
+                    end_time = -1
             else:
-                start_time = 0
-                end_time = 0
+                # Mark words without timestamps as disabled
+                start_time = -1
+                end_time = -1
             
             # Color coding based on score
             if score >= 90:
@@ -483,14 +488,26 @@ if "last_result" in st.session_state:
             emoji_escaped = html.escape(str(emoji))
             score_escaped = html.escape(str(score))
             
-            word_html += f'''
-            <button onclick="playWord({start_time}, {end_time})" 
-                    style="margin:4px; padding:8px 12px; border-radius:8px; 
-                           border:2px solid {color}; background:white; 
-                           cursor:pointer; font-size:14px;">
-                {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
-            </button>
-            '''
+            # Only create playable button if timestamps are valid
+            if start_time >= 0 and end_time > start_time:
+                word_html += f'''
+                <button onclick="playWord({start_time}, {end_time})" 
+                        style="margin:4px; padding:8px 12px; border-radius:8px; 
+                               border:2px solid {color}; background:white; 
+                               cursor:pointer; font-size:14px;">
+                    {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
+                </button>
+                '''
+            else:
+                # Disabled button for words without timestamps
+                word_html += f'''
+                <button disabled 
+                        style="margin:4px; padding:8px 12px; border-radius:8px; 
+                               border:2px solid {color}; background:#f0f0f0; 
+                               cursor:not-allowed; font-size:14px; opacity:0.6;">
+                    {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
+                </button>
+                '''
         
         # Render HTML component with audio player and JavaScript
         st.components.v1.html(f'''
@@ -499,7 +516,15 @@ if "last_result" in st.session_state:
             let stopTimeout = null;
             function playWord(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
-                if (stopTimeout) clearTimeout(stopTimeout);
+                
+                // Stop any currently playing audio and clear pending timeout
+                audio.pause();
+                if (stopTimeout) {{
+                    clearTimeout(stopTimeout);
+                    stopTimeout = null;
+                }}
+                
+                // Set playback position and start playing
                 audio.currentTime = startTime;
                 
                 // Play with error handling
@@ -508,7 +533,12 @@ if "last_result" in st.session_state:
                     // Audio playback might fail if user hasn't interacted with the page yet
                 }});
                 
-                stopTimeout = setTimeout(() => audio.pause(), (endTime - startTime) * 1000);
+                // Schedule pause at end time
+                const duration = (endTime - startTime) * 1000;
+                stopTimeout = setTimeout(() => {{
+                    audio.pause();
+                    stopTimeout = null;
+                }}, duration);
             }}
         </script>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
