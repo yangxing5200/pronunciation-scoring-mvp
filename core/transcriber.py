@@ -100,6 +100,10 @@ class WhisperTranscriber:
             return []
         
         total_duration = end_time - start_time
+        # Guard against division by zero (though check above prevents empty list)
+        if len(chinese_chars) == 0:
+            return []
+        
         char_duration = total_duration / len(chinese_chars)
         
         result = []

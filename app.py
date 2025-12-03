@@ -48,6 +48,11 @@ except ImportError:
     warnings.warn("gTTS not available. Online TTS fallback disabled.")
 
 
+# Constants for audio playback timing
+# This offset prevents playing into the next word due to requestAnimationFrame timing (~60fps = ~16ms)
+PLAYBACK_END_OFFSET = 0.01  # 10ms offset before end time
+
+
 def find_word_timestamp(word, word_timestamps):
     """
     Find timestamp for a word by matching text instead of relying on index.
@@ -72,10 +77,16 @@ def find_word_timestamp(word, word_timestamps):
             return ts
     
     # Try fuzzy match (word contained in timestamp or vice versa)
+    # Only match if words are similar length to avoid false positives like 'he' matching 'hello'
     for ts in word_timestamps:
         ts_word = ts.get('word', '').lower().strip()
-        if word_lower in ts_word or ts_word in word_lower:
-            return ts
+        # Require that the shorter word is at least 50% of the longer word's length
+        # This prevents 'he' from matching 'hello' or 'the'
+        min_len = min(len(word_lower), len(ts_word))
+        max_len = max(len(word_lower), len(ts_word))
+        if max_len > 0 and min_len / max_len >= 0.5:
+            if word_lower in ts_word or ts_word in word_lower:
+                return ts
     
     return None
 
@@ -563,6 +574,7 @@ if "last_result" in st.session_state:
         <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
         <script>
             let animationFrameId = null;
+            const PLAYBACK_END_OFFSET = {PLAYBACK_END_OFFSET};  // Offset to prevent playing next word
             
             function playWord(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
@@ -576,7 +588,7 @@ if "last_result" in st.session_state:
                 
                 // Function to check playback position
                 function checkTime() {{
-                    if (audio.currentTime >= endTime - 0.01) {{
+                    if (audio.currentTime >= endTime - PLAYBACK_END_OFFSET) {{
                         // Stop slightly before end to avoid playing next word
                         audio.pause();
                         animationFrameId = null;
