@@ -5,7 +5,7 @@ Converts Chinese text to pinyin with tone marks.
 Uses pypinyin for offline processing.
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import re
 
 
@@ -62,7 +62,7 @@ class PinyinMapper:
         
         return result
     
-    def text_to_pinyin_with_alternatives(self, text: str) -> List[Dict[str, any]]:
+    def text_to_pinyin_with_alternatives(self, text: str) -> List[Dict[str, Any]]:
         """
         Convert Chinese text to pinyin with alternative pronunciations.
         

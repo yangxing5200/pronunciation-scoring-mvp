@@ -7,6 +7,7 @@ Integrates all 9 tasks into a complete pronunciation scoring system.
 from typing import Dict, List, Optional
 from pathlib import Path
 import warnings
+import logging
 
 from .pinyin_mapper import PinyinMapper
 from .audio_aligner import ChineseAudioAligner
@@ -17,6 +18,9 @@ from .duration_scorer import DurationScorer
 from .pause_scorer import PauseScorer
 from .error_classifier import ErrorClassifier
 from .final_scorer import FinalScorer
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class ChineseScoringPipeline:
@@ -82,7 +86,7 @@ class ChineseScoringPipeline:
         if self.models_loaded:
             return
         
-        print("Loading Chinese pronunciation scoring models...")
+        logger.info("Loading Chinese pronunciation scoring models...")
         
         # Load alignment models
         if self.audio_aligner.is_available():
@@ -113,7 +117,7 @@ class ChineseScoringPipeline:
                 warnings.warn(f"Failed to load error classifier: {e}")
         
         self.models_loaded = True
-        print(f"Models loaded on {self.device}")
+        logger.info(f"Models loaded on {self.device}")
     
     def score_pronunciation(
         self,
@@ -136,14 +140,14 @@ class ChineseScoringPipeline:
             self.load_models()
         
         # Task 1: Pinyin Mapping
-        print("Task 1: Mapping text to pinyin...")
+        logger.info("Task 1: Mapping text to pinyin...")
         pinyin_sequence = self.pinyin_mapper.text_to_pinyin(reference_text)
         
         if not pinyin_sequence:
             raise ValueError("No Chinese characters found in reference text")
         
         # Task 2: Audio Alignment
-        print("Task 2: Aligning audio with text...")
+        logger.info("Task 2: Aligning audio with text...")
         if self.audio_aligner.is_available():
             alignment_results = self.audio_aligner.align_audio(
                 audio_path,
@@ -158,14 +162,14 @@ class ChineseScoringPipeline:
             )
         
         # Task 3: Audio Slicing
-        print("Task 3: Slicing audio into character segments...")
+        logger.info("Task 3: Slicing audio into character segments...")
         sliced_results = self.audio_slicer.slice_audio(
             audio_path,
             alignment_results
         )
         
         # Task 4: Acoustic Scoring
-        print("Task 4: Scoring acoustic quality...")
+        logger.info("Task 4: Scoring acoustic quality...")
         if self.acoustic_scorer.is_available():
             sliced_results = self.acoustic_scorer.score_segments(
                 sliced_results,
@@ -177,7 +181,7 @@ class ChineseScoringPipeline:
                 item["acoustic_score"] = 0.7
         
         # Task 5: Tone Scoring
-        print("Task 5: Scoring tone accuracy...")
+        logger.info("Task 5: Scoring tone accuracy...")
         if self.tone_scorer.is_available():
             sliced_results = self.tone_scorer.score_tones(sliced_results)
         else:
@@ -188,16 +192,16 @@ class ChineseScoringPipeline:
                 item["expected_tone"] = 0
         
         # Task 6: Duration Scoring
-        print("Task 6: Scoring pronunciation duration...")
+        logger.info("Task 6: Scoring pronunciation duration...")
         sliced_results = self.duration_scorer.score_durations(sliced_results)
         
         # Task 7: Pause/Fluency Scoring
-        print("Task 7: Scoring fluency and pauses...")
+        logger.info("Task 7: Scoring fluency and pauses...")
         sliced_results = self.pause_scorer.score_pauses(sliced_results)
         fluency_metrics = self.pause_scorer.calculate_overall_fluency(sliced_results)
         
         # Task 8: Error Classification
-        print("Task 8: Classifying pronunciation errors...")
+        logger.info("Task 8: Classifying pronunciation errors...")
         if self.error_classifier.is_available():
             sliced_results = self.error_classifier.classify_errors(sliced_results)
         else:
@@ -207,7 +211,7 @@ class ChineseScoringPipeline:
                 item["error_probabilities"] = {}
         
         # Task 9: Final Scoring
-        print("Task 9: Calculating final scores...")
+        logger.info("Task 9: Calculating final scores...")
         final_results = self.final_scorer.calculate_final_scores(sliced_results)
         overall_metrics = self.final_scorer.calculate_overall_score(final_results)
         feedback = self.final_scorer.generate_feedback(final_results, overall_metrics)
@@ -223,7 +227,7 @@ class ChineseScoringPipeline:
             "num_characters": len(final_results)
         }
         
-        print(f"Scoring complete! Overall score: {results['overall_score']}/100")
+        logger.info(f"Scoring complete! Overall score: {results['overall_score']}/100")
         
         return results
     
@@ -269,9 +273,9 @@ class ChineseScoringPipeline:
     
     def is_available(self) -> bool:
         """
-        Check if pipeline is available (pypinyin installed).
+        Check if pipeline is available for use.
         
         Returns:
-            True if pipeline can run
+            True if pipeline can run (pypinyin is available for basic functionality)
         """
         return self.pinyin_mapper.is_available()

@@ -15,7 +15,16 @@ sys.path.insert(0, str(project_root))
 
 
 def load_module(module_name, file_path):
-    """Load a module from file path."""
+    """
+    Load a module from file path.
+    
+    Args:
+        module_name (str): Name for the loaded module
+        file_path (str): Path to the module file
+    
+    Returns:
+        Loaded module object
+    """
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

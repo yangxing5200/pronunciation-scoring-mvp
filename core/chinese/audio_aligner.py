@@ -118,6 +118,26 @@ class ChineseAudioAligner:
         )
         
         # Extract character-level timestamps
+        char_timestamps = self._extract_char_timestamps(aligned_result)
+        
+        # Match with expected pinyin sequence
+        aligned_result_list = self._match_with_expected_sequence(
+            char_timestamps,
+            pinyin_sequence
+        )
+        
+        return aligned_result_list
+    
+    def _extract_char_timestamps(self, aligned_result: Dict) -> List[Dict]:
+        """
+        Extract character timestamps from WhisperX alignment result.
+        
+        Args:
+            aligned_result: WhisperX alignment result
+        
+        Returns:
+            List of character timestamps
+        """
         char_timestamps = []
         
         for segment in aligned_result.get("segments", []):
@@ -144,7 +164,23 @@ class ChineseAudioAligner:
                             "score": word_info.get("score", 1.0)
                         })
         
-        # Match with expected pinyin sequence
+        return char_timestamps
+    
+    def _match_with_expected_sequence(
+        self,
+        char_timestamps: List[Dict],
+        pinyin_sequence: List[Dict]
+    ) -> List[Dict]:
+        """
+        Match detected characters with expected sequence.
+        
+        Args:
+            char_timestamps: Detected character timestamps
+            pinyin_sequence: Expected pinyin sequence
+        
+        Returns:
+            Aligned results with matched characters
+        """
         aligned_result_list = []
         
         # Create mapping of expected characters
