@@ -5,6 +5,7 @@ Comprehensive pronunciation scoring system.
 import numpy as np
 import string
 import re
+import warnings
 from typing import Dict, List, Optional
 from .aligner import PhonemeAligner
 from .text_comparator import TextComparator
@@ -13,12 +14,28 @@ from .text_comparator import TextComparator
 class PronunciationScorer:
     """
     Three-dimensional pronunciation scorer: Accuracy, Fluency, Prosody.
+    
+    Supports both English and Chinese pronunciation scoring.
     """
     
-    def __init__(self):
-        """Initialize pronunciation scorer."""
+    def __init__(self, enable_chinese: bool = True):
+        """
+        Initialize pronunciation scorer.
+        
+        Args:
+            enable_chinese: Whether to enable Chinese scoring pipeline
+        """
         self.aligner = PhonemeAligner()
         self.comparator = TextComparator()
+        
+        # Chinese scoring pipeline
+        self.chinese_pipeline = None
+        if enable_chinese:
+            try:
+                from .chinese import ChineseScoringPipeline
+                self.chinese_pipeline = ChineseScoringPipeline()
+            except Exception as e:
+                warnings.warn(f"Chinese scoring pipeline not available: {e}")
         
         # Phoneme similarity matrix (simplified)
         # TODO: Load from configuration file or use standardized phoneme distance matrix
@@ -83,7 +100,8 @@ class PronunciationScorer:
         reference_text: str,
         transcribed_text: str,
         word_timestamps: List[Dict],
-        reference_audio_path: Optional[str] = None
+        reference_audio_path: Optional[str] = None,
+        language: str = "en"
     ) -> Dict:
         """
         Generate comprehensive pronunciation score.
@@ -94,9 +112,109 @@ class PronunciationScorer:
             transcribed_text: What was transcribed from user audio
             word_timestamps: Word-level timestamps from transcription
             reference_audio_path: Optional path to reference audio
+            language: Language code ('en' or 'zh')
         
         Returns:
             Comprehensive scoring dictionary
+        """
+        # Check if reference text is Chinese
+        is_chinese = self._is_chinese(reference_text)
+        
+        # Use Chinese pipeline if text is Chinese and pipeline is available
+        if is_chinese and self.chinese_pipeline and self.chinese_pipeline.is_available():
+            return self._score_chinese_pronunciation(
+                user_audio_path,
+                reference_text,
+                reference_audio_path
+            )
+        
+        # Otherwise use standard English scoring
+        return self._score_english_pronunciation(
+            user_audio_path,
+            reference_text,
+            transcribed_text,
+            word_timestamps,
+            reference_audio_path
+        )
+    
+    def _score_chinese_pronunciation(
+        self,
+        user_audio_path: str,
+        reference_text: str,
+        reference_audio_path: Optional[str] = None
+    ) -> Dict:
+        """
+        Score Chinese pronunciation using the specialized pipeline.
+        
+        Args:
+            user_audio_path: Path to user's audio
+            reference_text: Expected Chinese text
+            reference_audio_path: Optional reference audio
+        
+        Returns:
+            Scoring results compatible with existing format
+        """
+        # Use Chinese pipeline
+        chinese_results = self.chinese_pipeline.score_pronunciation(
+            user_audio_path,
+            reference_text,
+            reference_audio_path
+        )
+        
+        # Convert to compatible format for app.py
+        overall_metrics = chinese_results["overall_metrics"]
+        
+        # Map character scores to word scores for compatibility
+        word_scores = []
+        for char_score in chinese_results["character_scores"]:
+            word_scores.append({
+                "word": char_score["char"],
+                "score": char_score["final_score"],
+                "status": "correct" if char_score["final_score"] >= 75 else "incorrect"
+            })
+        
+        # Create compatible result format
+        result = {
+            "total_score": overall_metrics["overall_score"],
+            "accuracy": overall_metrics["avg_acoustic_score"],
+            "fluency": overall_metrics["avg_pause_score"],
+            "prosody": overall_metrics["avg_tone_score"],
+            "word_scores": word_scores,
+            "phoneme_scores": [],  # Chinese uses character-level
+            "issues": chinese_results["feedback"],
+            "text_comparison": {
+                "reference": reference_text,
+                "hypothesis": reference_text,  # Placeholder
+                "similarity": overall_metrics["overall_score"] / 100,
+                "wer": 0.0,
+                "missing_words": [],
+                "extra_words": []
+            },
+            "chinese_detailed_results": chinese_results  # Full Chinese results
+        }
+        
+        return result
+    
+    def _score_english_pronunciation(
+        self,
+        user_audio_path: str,
+        reference_text: str,
+        transcribed_text: str,
+        word_timestamps: List[Dict],
+        reference_audio_path: Optional[str] = None
+    ) -> Dict:
+        """
+        Score English pronunciation (original implementation).
+        
+        Args:
+            user_audio_path: Path to user's audio
+            reference_text: Expected text
+            transcribed_text: Transcribed text
+            word_timestamps: Word timestamps
+            reference_audio_path: Optional reference audio
+        
+        Returns:
+            Scoring results
         """
         # 1. Text comparison (accuracy baseline)
         text_comparison = self.comparator.compare_texts(
