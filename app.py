@@ -77,14 +77,13 @@ def find_word_timestamp(word, word_timestamps):
             return ts
     
     # Try fuzzy match (word contained in timestamp or vice versa)
-    # Only match if words are similar length to avoid false positives like 'he' matching 'hello'
+    # Require that the shorter word is at least 70% of the longer word's length
+    # This prevents most false positives while allowing reasonable partial matches
     for ts in word_timestamps:
         ts_word = ts.get('word', '').lower().strip()
-        # Require that the shorter word is at least 50% of the longer word's length
-        # This prevents 'he' from matching 'hello' or 'the'
         min_len = min(len(word_lower), len(ts_word))
         max_len = max(len(word_lower), len(ts_word))
-        if max_len > 0 and min_len / max_len >= 0.5:
+        if max_len > 0 and min_len / max_len >= 0.7:
             if word_lower in ts_word or ts_word in word_lower:
                 return ts
     

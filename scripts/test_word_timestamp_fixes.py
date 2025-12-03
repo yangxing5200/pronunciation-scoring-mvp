@@ -136,12 +136,12 @@ def test_word_timestamp_matching():
                 if ts_word == word_lower:
                     return ts
             
-            # Try fuzzy match with length ratio check
+            # Try fuzzy match with length ratio check (70% threshold)
             for ts in word_timestamps:
                 ts_word = ts.get('word', '').lower().strip()
                 min_len = min(len(word_lower), len(ts_word))
                 max_len = max(len(word_lower), len(ts_word))
-                if max_len > 0 and min_len / max_len >= 0.5:
+                if max_len > 0 and min_len / max_len >= 0.7:
                     if word_lower in ts_word or ts_word in word_lower:
                         return ts
             
@@ -184,19 +184,18 @@ def test_word_timestamp_matching():
             {'word': 'the', 'start': 0.5, 'end': 0.7, 'probability': 1.0},
             {'word': 'world', 'start': 0.7, 'end': 1.2, 'probability': 1.0}
         ]
-        # 'worl' should match 'world' because 4/5 = 80% > 50% threshold
+        # 'worl' should match 'world' because 4/5 = 80% > 70% threshold
         ts = find_word_timestamp('worl', timestamps_with_short)
         assert ts is not None, "Fuzzy match should work for similar-length words"
         assert ts['word'] == 'world', "Wrong word returned in fuzzy match"
-        print("✓ Test 5: Fuzzy matching works with length ratio check")
+        print("✓ Test 5: Fuzzy matching works with 70% length ratio check")
         
-        # Test 6: Very short words may still match - this is acceptable
-        # 'he' matching 'the' is actually reasonable (2/3 = 66% > 50%)
-        # but we document this as expected behavior
+        # Test 6: Verify false positives are prevented
+        # 'he' should NOT match 'the' (2/3 = 66% < 70% threshold)
+        # 'he' should NOT match 'hello' (2/5 = 40% < 70% threshold)
         ts = find_word_timestamp('he', timestamps_with_short)
-        # This may or may not match depending on exact implementation
-        # What matters is the length ratio check prevents obvious false positives
-        print("✓ Test 6: Length ratio check implemented (prevents most false positives)")
+        assert ts is None, "Should not match 'he' to 'the' or 'hello' with 70% threshold"
+        print("✓ Test 6: 70% threshold prevents false positive fuzzy matches")
         
         # Test 7: Chinese character matching
         chinese_timestamps = [

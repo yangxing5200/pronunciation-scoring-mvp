@@ -119,7 +119,7 @@ class WhisperTranscriber:
             
         except ImportError:
             warnings.warn(
-                "WhisperX not available. Install with: pip install whisperx\n"
+                "WhisperX not available. Install with: pip install git+https://github.com/m-bain/whisperX.git\n"
                 "Falling back to standard Whisper word-level timestamps."
             )
             self.use_whisperx = False
@@ -146,10 +146,6 @@ class WhisperTranscriber:
             return []
         
         total_duration = end_time - start_time
-        # Guard against division by zero (though check above prevents empty list)
-        if len(chinese_chars) == 0:
-            return []
-        
         char_duration = total_duration / len(chinese_chars)
         
         result = []
