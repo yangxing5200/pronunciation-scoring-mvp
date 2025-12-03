@@ -21,6 +21,11 @@ pydub>=0.25.0
 openai-whisper>=20231117
 faster-whisper>=1.0.0
 
+# WhisperX for enhanced word/phoneme-level alignment (optional but recommended)
+# Provides better timestamp accuracy and character-level alignment for Chinese
+# Install with: pip install git+https://github.com/m-bain/whisperX.git
+# whisperx>=3.1.0
+
 # PyTorch - base installation (CPU version)
 # For GPU support, use requirements-cuda.txt instead
 torch==2.2.2

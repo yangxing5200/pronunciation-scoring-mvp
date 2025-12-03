@@ -110,11 +110,21 @@ class AudioProcessor:
             return
         
         try:
+            # Check if WhisperX is available
+            use_whisperx = False
+            try:
+                import whisperx
+                use_whisperx = True
+                print("WhisperX detected - will use enhanced alignment")
+            except ImportError:
+                print("WhisperX not available - using standard Whisper")
+            
             # Initialize transcriber
             self.transcriber = WhisperTranscriber(
                 model_size="base",
                 model_dir="models/whisper",
-                language="en"
+                language="en",
+                use_whisperx=use_whisperx
             )
             
             # Initialize scorer
@@ -204,6 +214,10 @@ class AudioProcessor:
         # Transcribe user audio
         transcription = self.transcriber.transcribe(str(temp_audio_path))
         
+        # Store alignment type and phonemes for display
+        alignment_type = transcription.get("alignment_type", "whisper")
+        phonemes = transcription.get("phonemes", [])
+        
         # Score pronunciation
         result = self.scorer.score_pronunciation(
             user_audio_path=str(temp_audio_path),
@@ -213,9 +227,11 @@ class AudioProcessor:
             reference_audio_path=None  # Could add reference audio
         )
         
-        # Store audio path and word timestamps for word playback
+        # Store audio path, word timestamps, phonemes, and alignment info for word playback
         result['user_audio_path'] = str(temp_audio_path)
         result['word_timestamps'] = transcription["words"]
+        result['phonemes'] = phonemes
+        result['alignment_type'] = alignment_type
         
         return result
 
@@ -287,6 +303,17 @@ with st.sidebar:
             # Show loaded components
             st.markdown("**Loaded Components:**")
             st.markdown("- ✅ Whisper Transcriber")
+            
+            # Check if WhisperX is available
+            if hasattr(st.session_state.processor.transcriber, 'use_whisperx') and \
+               st.session_state.processor.transcriber.use_whisperx:
+                st.markdown("- ✨ WhisperX Enhanced Alignment")
+                st.markdown("  - Word-level for Chinese")
+                st.markdown("  - Phoneme-level for English")
+            else:
+                st.markdown("- ⚠️ WhisperX (not installed)")
+                st.caption("Install for better accuracy")
+            
             st.markdown("- ✅ Pronunciation Scorer")
             
             if st.session_state.processor.voice_cloner and \
@@ -482,6 +509,14 @@ if "last_result" in st.session_state:
     
     # Word-level feedback
     st.markdown("### 📖 Word-by-Word Feedback")
+    
+    # Show alignment type
+    alignment_type = result.get('alignment_type', 'whisper')
+    if alignment_type == 'whisperx':
+        st.caption("✨ Using WhisperX enhanced alignment for better accuracy")
+    else:
+        st.caption("💡 Tip: Install WhisperX for improved timestamp accuracy")
+    
     st.caption("Click on any word to hear your pronunciation of that word")
     
     # Get word timestamps if available
@@ -668,6 +703,27 @@ if "last_result" in st.session_state:
             st.warning(f"Missing words: {', '.join(tc['missing_words'])}")
         if tc.get('extra_words'):
             st.info(f"Extra words: {', '.join(tc['extra_words'])}")
+        
+        # Display phoneme information if available (WhisperX for English)
+        phonemes = result.get('phonemes', [])
+        if phonemes:
+            st.markdown("#### Phoneme-Level Analysis")
+            st.caption("✨ Enhanced phoneme-level timestamps from WhisperX")
+            st.markdown(f"**Total phonemes detected:** {len(phonemes)}")
+            
+            # Show sample of phonemes
+            if len(phonemes) > 0:
+                sample_size = min(10, len(phonemes))
+                st.markdown(f"**Sample phonemes (first {sample_size}):**")
+                phoneme_data = []
+                for p in phonemes[:sample_size]:
+                    phoneme_data.append({
+                        "Phoneme": p.get('phoneme', ''),
+                        "Word": p.get('word', ''),
+                        "Start": f"{p.get('start', 0):.3f}s",
+                        "End": f"{p.get('end', 0):.3f}s"
+                    })
+                st.table(phoneme_data)
 
 # Footer
 st.divider()
