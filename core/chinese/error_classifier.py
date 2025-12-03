@@ -82,20 +82,22 @@ class ErrorClassifier:
         Returns:
             PyTorch MLP model
         """
-        class ErrorMLP(self.nn.Module):
+        nn = self.nn  # 获取 nn 模块的引用
+        
+        class ErrorMLP(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.fc1 = self.nn.Linear(768, 256)
-                self.relu1 = self.nn.ReLU()
-                self.dropout1 = self.nn.Dropout(0.3)
-                self.fc2 = self.nn.Linear(256, 64)
-                self.relu2 = self.nn.ReLU()
-                self.dropout2 = self.nn.Dropout(0.3)
-                self.fc3 = self.nn.Linear(64, 4)  # 4 error types
-                self.sigmoid = self.nn.Sigmoid()  # Multi-label
+                self.fc1 = nn.Linear(768, 256)
+                self.relu1 = nn.ReLU()
+                self.dropout1 = nn. Dropout(0.3)
+                self.fc2 = nn. Linear(256, 64)
+                self.relu2 = nn.ReLU()
+                self.dropout2 = nn. Dropout(0.3)
+                self.fc3 = nn. Linear(64, 4)  # 4 error types
+                self.sigmoid = nn.Sigmoid()  # Multi-label
             
             def forward(self, x):
-                x = self.fc1(x)
+                x = self. fc1(x)
                 x = self.relu1(x)
                 x = self.dropout1(x)
                 x = self.fc2(x)
