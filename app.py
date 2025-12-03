@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import time
 import os
+import re
 from pathlib import Path
 import warnings
 import tempfile
@@ -47,6 +48,48 @@ except ImportError:
     warnings.warn("gTTS not available. Online TTS fallback disabled.")
 
 
+# Constants for audio playback timing
+# This offset prevents playing into the next word due to requestAnimationFrame timing (~60fps = ~16ms)
+PLAYBACK_END_OFFSET = 0.01  # 10ms offset before end time
+
+
+def find_word_timestamp(word, word_timestamps):
+    """
+    Find timestamp for a word by matching text instead of relying on index.
+    
+    Args:
+        word: Word text to find
+        word_timestamps: List of timestamp dictionaries from Whisper
+    
+    Returns:
+        Dictionary with word, start, end, probability or None if not found
+    """
+    if not word_timestamps:
+        return None
+    
+    # Clean the word for matching
+    word_lower = word.lower().strip()
+    
+    # Try exact match first
+    for ts in word_timestamps:
+        ts_word = ts.get('word', '').lower().strip()
+        if ts_word == word_lower:
+            return ts
+    
+    # Try fuzzy match (word contained in timestamp or vice versa)
+    # Require that the shorter word is at least 70% of the longer word's length
+    # This prevents most false positives while allowing reasonable partial matches
+    for ts in word_timestamps:
+        ts_word = ts.get('word', '').lower().strip()
+        min_len = min(len(word_lower), len(ts_word))
+        max_len = max(len(word_lower), len(ts_word))
+        if max_len > 0 and min_len / max_len >= 0.7:
+            if word_lower in ts_word or ts_word in word_lower:
+                return ts
+    
+    return None
+
+
 class AudioProcessor:
     """Main audio processing orchestrator."""
     
@@ -66,11 +109,21 @@ class AudioProcessor:
             return
         
         try:
+            # Check if WhisperX is available
+            use_whisperx = False
+            try:
+                import whisperx
+                use_whisperx = True
+                print("WhisperX detected - will use enhanced alignment")
+            except ImportError:
+                print("WhisperX not available - using standard Whisper")
+            
             # Initialize transcriber
             self.transcriber = WhisperTranscriber(
                 model_size="base",
                 model_dir="models/whisper",
-                language="en"
+                language="en",
+                use_whisperx=use_whisperx
             )
             
             # Initialize scorer
@@ -160,6 +213,10 @@ class AudioProcessor:
         # Transcribe user audio
         transcription = self.transcriber.transcribe(str(temp_audio_path))
         
+        # Store alignment type and phonemes for display
+        alignment_type = transcription.get("alignment_type", "whisper")
+        phonemes = transcription.get("phonemes", [])
+        
         # Score pronunciation
         result = self.scorer.score_pronunciation(
             user_audio_path=str(temp_audio_path),
@@ -169,9 +226,11 @@ class AudioProcessor:
             reference_audio_path=None  # Could add reference audio
         )
         
-        # Store audio path and word timestamps for word playback
+        # Store audio path, word timestamps, phonemes, and alignment info for word playback
         result['user_audio_path'] = str(temp_audio_path)
         result['word_timestamps'] = transcription["words"]
+        result['phonemes'] = phonemes
+        result['alignment_type'] = alignment_type
         
         return result
 
@@ -243,6 +302,17 @@ with st.sidebar:
             # Show loaded components
             st.markdown("**Loaded Components:**")
             st.markdown("- ✅ Whisper Transcriber")
+            
+            # Check if WhisperX is available
+            if hasattr(st.session_state.processor.transcriber, 'use_whisperx') and \
+               st.session_state.processor.transcriber.use_whisperx:
+                st.markdown("- ✨ WhisperX Enhanced Alignment")
+                st.markdown("  - Word-level for Chinese")
+                st.markdown("  - Phoneme-level for English")
+            else:
+                st.markdown("- ⚠️ WhisperX (not installed)")
+                st.caption("Install for better accuracy")
+            
             st.markdown("- ✅ Pronunciation Scorer")
             
             if st.session_state.processor.voice_cloner and \
@@ -438,6 +508,14 @@ if "last_result" in st.session_state:
     
     # Word-level feedback
     st.markdown("### 📖 Word-by-Word Feedback")
+    
+    # Show alignment type
+    alignment_type = result.get('alignment_type', 'whisper')
+    if alignment_type == 'whisperx':
+        st.caption("✨ Using WhisperX enhanced alignment for better accuracy")
+    else:
+        st.caption("💡 Tip: Install WhisperX for improved timestamp accuracy")
+    
     st.caption("Click on any word to hear your pronunciation of that word")
     
     # Get word timestamps if available
@@ -459,10 +537,12 @@ if "last_result" in st.session_state:
             word = w['word']
             score = w['score']
             
-            # Get time stamps and validate they are numeric
-            if idx < len(word_timestamps):
-                start_time = word_timestamps[idx].get('start', 0)
-                end_time = word_timestamps[idx].get('end', 0)
+            # Find timestamp by matching word text instead of using index
+            word_ts = find_word_timestamp(word, word_timestamps)
+            
+            if word_ts:
+                start_time = word_ts.get('start', 0)
+                end_time = word_ts.get('end', 0)
                 # Validate timestamps are numeric
                 try:
                     start_time = float(start_time)
@@ -527,15 +607,29 @@ if "last_result" in st.session_state:
         st.components.v1.html(f'''
         <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
         <script>
-            let stopTimeout = null;
+            let animationFrameId = null;
+            const PLAYBACK_END_OFFSET = {PLAYBACK_END_OFFSET};  // Offset to prevent playing next word
+            
             function playWord(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
                 
-                // Stop any currently playing audio and clear pending timeout
+                // Stop any currently playing audio and cancel animation frame
                 audio.pause();
-                if (stopTimeout) {{
-                    clearTimeout(stopTimeout);
-                    stopTimeout = null;
+                if (animationFrameId) {{
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }}
+                
+                // Function to check playback position
+                function checkTime() {{
+                    if (audio.currentTime >= endTime - PLAYBACK_END_OFFSET) {{
+                        // Stop slightly before end to avoid playing next word
+                        audio.pause();
+                        animationFrameId = null;
+                    }} else if (!audio.paused) {{
+                        // Continue checking
+                        animationFrameId = requestAnimationFrame(checkTime);
+                    }}
                 }}
                 
                 // Wait for audio to be ready before setting currentTime
@@ -545,30 +639,23 @@ if "last_result" in st.session_state:
                         audio.currentTime = startTime;
                         
                         // Play with error handling
-                        audio.play().catch(function(error) {{
+                        audio.play().then(function() {{
+                            // Start checking playback position
+                            animationFrameId = requestAnimationFrame(checkTime);
+                        }}).catch(function(error) {{
                             console.error('Playback failed:', error);
                             // Audio playback might fail if user hasn't interacted with the page yet
                         }});
-                        
-                        // Schedule pause at end time
-                        const duration = (endTime - startTime) * 1000;
-                        stopTimeout = setTimeout(() => {{
-                            audio.pause();
-                            stopTimeout = null;
-                        }}, duration);
                     }} else {{
                         // Wait for audio to load
                         audio.addEventListener('loadeddata', function onLoaded() {{
                             audio.removeEventListener('loadeddata', onLoaded);
                             audio.currentTime = startTime;
-                            audio.play().catch(function(error) {{
+                            audio.play().then(function() {{
+                                animationFrameId = requestAnimationFrame(checkTime);
+                            }}).catch(function(error) {{
                                 console.error('Playback failed:', error);
                             }});
-                            const duration = (endTime - startTime) * 1000;
-                            stopTimeout = setTimeout(() => {{
-                                audio.pause();
-                                stopTimeout = null;
-                            }}, duration);
                         }});
                     }}
                 }}
@@ -615,6 +702,27 @@ if "last_result" in st.session_state:
             st.warning(f"Missing words: {', '.join(tc['missing_words'])}")
         if tc.get('extra_words'):
             st.info(f"Extra words: {', '.join(tc['extra_words'])}")
+        
+        # Display phoneme information if available (WhisperX for English)
+        phonemes = result.get('phonemes', [])
+        if phonemes:
+            st.markdown("#### Phoneme-Level Analysis")
+            st.caption("✨ Enhanced phoneme-level timestamps from WhisperX")
+            st.markdown(f"**Total phonemes detected:** {len(phonemes)}")
+            
+            # Show sample of phonemes
+            if len(phonemes) > 0:
+                sample_size = min(10, len(phonemes))
+                st.markdown(f"**Sample phonemes (first {sample_size}):**")
+                phoneme_data = []
+                for p in phonemes[:sample_size]:
+                    phoneme_data.append({
+                        "Phoneme": p.get('phoneme', ''),
+                        "Word": p.get('word', ''),
+                        "Start": f"{p.get('start', 0):.3f}s",
+                        "End": f"{p.get('end', 0):.3f}s"
+                    })
+                st.table(phoneme_data)
 
 # Footer
 st.divider()

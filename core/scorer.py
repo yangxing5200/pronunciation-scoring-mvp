@@ -4,6 +4,7 @@ Comprehensive pronunciation scoring system.
 
 import numpy as np
 import string
+import re
 from typing import Dict, List, Optional
 from .aligner import PhonemeAligner
 from .text_comparator import TextComparator
@@ -45,7 +46,36 @@ class PronunciationScorer:
         """
         # Remove common punctuation marks
         translator = str.maketrans('', '', string.punctuation)
+        # Also remove common Chinese punctuation
+        chinese_punctuation = '，。！？；：""''（）《》【】、'
+        for char in chinese_punctuation:
+            text = text.replace(char, '')
         return text.translate(translator)
+    
+    def _is_chinese(self, text: str) -> bool:
+        """
+        Detect if text contains Chinese characters.
+        
+        Args:
+            text: Text to check
+        
+        Returns:
+            True if text contains Chinese characters
+        """
+        return bool(re.search(r'[\u4e00-\u9fff]', text))
+    
+    def _split_chinese_text(self, text: str) -> List[str]:
+        """
+        Split Chinese text into individual characters.
+        
+        Args:
+            text: Chinese text to split
+        
+        Returns:
+            List of Chinese characters
+        """
+        # Extract only Chinese characters
+        return re.findall(r'[\u4e00-\u9fff]', text)
     
     def score_pronunciation(
         self,
@@ -149,8 +179,21 @@ class PronunciationScorer:
         ref_clean = self._remove_punctuation(reference_text.lower())
         trans_clean = self._remove_punctuation(transcribed_text.lower())
         
-        ref_words = ref_clean.split()
-        trans_words = trans_clean.split()
+        # Check if reference text is Chinese
+        # Note: This assumes that if reference is Chinese, we want Chinese character-level scoring
+        # For mixed-language scenarios, this will split Chinese parts into characters
+        ref_is_chinese = self._is_chinese(ref_clean)
+        trans_is_chinese = self._is_chinese(trans_clean)
+        
+        # Use Chinese splitting if either reference or transcription contains Chinese
+        if ref_is_chinese or trans_is_chinese:
+            # For Chinese, split into characters
+            ref_words = self._split_chinese_text(ref_clean) if ref_is_chinese else ref_clean.split()
+            trans_words = self._split_chinese_text(trans_clean) if trans_is_chinese else trans_clean.split()
+        else:
+            # For non-Chinese, split by whitespace
+            ref_words = ref_clean.split()
+            trans_words = trans_clean.split()
         
         word_scores = []
         
