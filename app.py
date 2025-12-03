@@ -198,7 +198,7 @@ class AudioProcessor:
         # Fallback to standard TTS if voice cloning not available
         return self.generate_standard_audio(standard_text)
     
-    def analyze_pronunciation(self, user_audio_file, reference_text):
+    def analyze_pronunciation(self, user_audio_file, reference_text, language="en"):
         """Core pronunciation analysis."""
         if not self.model_loaded:
             raise RuntimeError("Models not loaded")
@@ -210,8 +210,18 @@ class AudioProcessor:
         with open(temp_audio_path, "wb") as f:
             f.write(user_audio_file.getvalue())
         
+        # Detect if Chinese based on reference text
+        import re
+        is_chinese = bool(re.search(r'[\u4e00-\u9fff]', reference_text))
+        
+        # Set language for transcription
+        transcription_language = "zh" if is_chinese else language
+        
         # Transcribe user audio
-        transcription = self.transcriber.transcribe(str(temp_audio_path))
+        transcription = self.transcriber.transcribe(
+            str(temp_audio_path),
+            language=transcription_language
+        )
         
         # Store alignment type and phonemes for display
         alignment_type = transcription.get("alignment_type", "whisper")
@@ -223,7 +233,8 @@ class AudioProcessor:
             reference_text=reference_text,
             transcribed_text=transcription["text"],
             word_timestamps=transcription["words"],
-            reference_audio_path=None  # Could add reference audio
+            reference_audio_path=None,  # Could add reference audio
+            language=transcription_language
         )
         
         # Store audio path, word timestamps, phonemes, and alignment info for word playback
@@ -466,7 +477,8 @@ with col2:
                     try:
                         result = st.session_state.processor.analyze_pronunciation(
                             audio_file,
-                            target_text
+                            target_text,
+                            language=language.lower()[:2]  # 'en' or 'zh'
                         )
                         
                         # Store result in session state
