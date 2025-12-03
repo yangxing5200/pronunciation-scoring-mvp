@@ -4,6 +4,7 @@ Whisper-based speech transcription module for offline use.
 
 import os
 import warnings
+import re
 from typing import Dict, List, Optional, Union
 import torch
 import whisper
@@ -80,6 +81,50 @@ class WhisperTranscriber:
                 f"Please run 'python scripts/download_models.py' first."
             )
     
+    def _split_chinese_characters(self, text: str, start_time: float, end_time: float) -> List[Dict]:
+        """
+        Split Chinese text into individual characters with proportional timestamps.
+        
+        Args:
+            text: Chinese text to split
+            start_time: Start time of the text segment
+            end_time: End time of the text segment
+        
+        Returns:
+            List of dictionaries with word (character), start, end, probability
+        """
+        # Extract only Chinese characters (U+4E00 to U+9FFF)
+        chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
+        
+        if not chinese_chars:
+            return []
+        
+        total_duration = end_time - start_time
+        char_duration = total_duration / len(chinese_chars)
+        
+        result = []
+        for i, char in enumerate(chinese_chars):
+            result.append({
+                'word': char,
+                'start': start_time + i * char_duration,
+                'end': start_time + (i + 1) * char_duration,
+                'probability': 1.0
+            })
+        
+        return result
+    
+    def _is_chinese(self, text: str) -> bool:
+        """
+        Detect if text contains Chinese characters.
+        
+        Args:
+            text: Text to check
+        
+        Returns:
+            True if text contains Chinese characters
+        """
+        return bool(re.search(r'[\u4e00-\u9fff]', text))
+    
     def transcribe(
         self,
         audio_path: Union[str, Path],
@@ -119,13 +164,31 @@ class WhisperTranscriber:
         # Extract word-level information
         words = []
         for segment in result.get("segments", []):
-            for word_info in segment.get("words", []):
-                words.append({
-                    "word": word_info.get("word", "").strip(),
-                    "start": word_info.get("start", 0.0),
-                    "end": word_info.get("end", 0.0),
-                    "probability": word_info.get("probability", 1.0)
-                })
+            segment_words = segment.get("words", [])
+            
+            # Check if this is Chinese text
+            segment_text = segment.get("text", "")
+            if self._is_chinese(segment_text) and segment_words:
+                # For Chinese, split each "word" into individual characters
+                for word_info in segment_words:
+                    word_text = word_info.get("word", "").strip()
+                    word_start = word_info.get("start", 0.0)
+                    word_end = word_info.get("end", 0.0)
+                    
+                    # Split this word into characters
+                    char_words = self._split_chinese_characters(
+                        word_text, word_start, word_end
+                    )
+                    words.extend(char_words)
+            else:
+                # For non-Chinese, use words as-is
+                for word_info in segment_words:
+                    words.append({
+                        "word": word_info.get("word", "").strip(),
+                        "start": word_info.get("start", 0.0),
+                        "end": word_info.get("end", 0.0),
+                        "probability": word_info.get("probability", 1.0)
+                    })
         
         return {
             "text": result.get("text", "").strip(),

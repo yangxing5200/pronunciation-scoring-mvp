@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import time
 import os
+import re
 from pathlib import Path
 import warnings
 import tempfile
@@ -45,6 +46,38 @@ try:
 except ImportError:
     GTTS_AVAILABLE = False
     warnings.warn("gTTS not available. Online TTS fallback disabled.")
+
+
+def find_word_timestamp(word, word_timestamps):
+    """
+    Find timestamp for a word by matching text instead of relying on index.
+    
+    Args:
+        word: Word text to find
+        word_timestamps: List of timestamp dictionaries from Whisper
+    
+    Returns:
+        Dictionary with word, start, end, probability or None if not found
+    """
+    if not word_timestamps:
+        return None
+    
+    # Clean the word for matching
+    word_lower = word.lower().strip()
+    
+    # Try exact match first
+    for ts in word_timestamps:
+        ts_word = ts.get('word', '').lower().strip()
+        if ts_word == word_lower:
+            return ts
+    
+    # Try fuzzy match (word contained in timestamp or vice versa)
+    for ts in word_timestamps:
+        ts_word = ts.get('word', '').lower().strip()
+        if word_lower in ts_word or ts_word in word_lower:
+            return ts
+    
+    return None
 
 
 class AudioProcessor:
@@ -459,10 +492,12 @@ if "last_result" in st.session_state:
             word = w['word']
             score = w['score']
             
-            # Get time stamps and validate they are numeric
-            if idx < len(word_timestamps):
-                start_time = word_timestamps[idx].get('start', 0)
-                end_time = word_timestamps[idx].get('end', 0)
+            # Find timestamp by matching word text instead of using index
+            word_ts = find_word_timestamp(word, word_timestamps)
+            
+            if word_ts:
+                start_time = word_ts.get('start', 0)
+                end_time = word_ts.get('end', 0)
                 # Validate timestamps are numeric
                 try:
                     start_time = float(start_time)
@@ -527,15 +562,28 @@ if "last_result" in st.session_state:
         st.components.v1.html(f'''
         <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
         <script>
-            let stopTimeout = null;
+            let animationFrameId = null;
+            
             function playWord(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
                 
-                // Stop any currently playing audio and clear pending timeout
+                // Stop any currently playing audio and cancel animation frame
                 audio.pause();
-                if (stopTimeout) {{
-                    clearTimeout(stopTimeout);
-                    stopTimeout = null;
+                if (animationFrameId) {{
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }}
+                
+                // Function to check playback position
+                function checkTime() {{
+                    if (audio.currentTime >= endTime - 0.01) {{
+                        // Stop slightly before end to avoid playing next word
+                        audio.pause();
+                        animationFrameId = null;
+                    }} else if (!audio.paused) {{
+                        // Continue checking
+                        animationFrameId = requestAnimationFrame(checkTime);
+                    }}
                 }}
                 
                 // Wait for audio to be ready before setting currentTime
@@ -545,30 +593,23 @@ if "last_result" in st.session_state:
                         audio.currentTime = startTime;
                         
                         // Play with error handling
-                        audio.play().catch(function(error) {{
+                        audio.play().then(function() {{
+                            // Start checking playback position
+                            animationFrameId = requestAnimationFrame(checkTime);
+                        }}).catch(function(error) {{
                             console.error('Playback failed:', error);
                             // Audio playback might fail if user hasn't interacted with the page yet
                         }});
-                        
-                        // Schedule pause at end time
-                        const duration = (endTime - startTime) * 1000;
-                        stopTimeout = setTimeout(() => {{
-                            audio.pause();
-                            stopTimeout = null;
-                        }}, duration);
                     }} else {{
                         // Wait for audio to load
                         audio.addEventListener('loadeddata', function onLoaded() {{
                             audio.removeEventListener('loadeddata', onLoaded);
                             audio.currentTime = startTime;
-                            audio.play().catch(function(error) {{
+                            audio.play().then(function() {{
+                                animationFrameId = requestAnimationFrame(checkTime);
+                            }}).catch(function(error) {{
                                 console.error('Playback failed:', error);
                             }});
-                            const duration = (endTime - startTime) * 1000;
-                            stopTimeout = setTimeout(() => {{
-                                audio.pause();
-                                stopTimeout = null;
-                            }}, duration);
                         }});
                     }}
                 }}
