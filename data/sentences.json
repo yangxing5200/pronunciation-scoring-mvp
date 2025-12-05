@@ -1,56 +1,531 @@
 {
   "English": {
-    "Hello World": {
+    "Level_1_Greetings_1": {
       "text": "Hello world, this is a test.",
       "phonetics": "/həˈloʊ wɜːrld ðɪs ɪz ə tɛst/",
       "level": 1
     },
-    "Weather Talk": {
-      "text": "The weather is beautiful today.",
-      "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ/",
-      "level": 2
-    },
-    "Technology": {
-      "text": "Artificial intelligence is transforming the world.",
-      "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz trænsˈfɔrmɪŋ ðə wɜrld/",
-      "level": 3
-    },
-    "Daily Life": {
+    "Level_1_DailyLife_2": {
       "text": "I usually wake up at seven in the morning.",
       "phonetics": "/aɪ ˈjuːʒuəli weɪk ʌp æt ˈsɛvən ɪn ðə ˈmɔːrnɪŋ/",
       "level": 1
     },
-    "Travel": {
-      "text": "The airport is about thirty minutes away from here.",
-      "phonetics": "/ðə ˈɛrpɔːrt ɪz əˈbaʊt ˈθɜːrti ˈmɪnɪts əˈweɪ frʌm hɪr/",
+    "Level_1_Time_3": {
+      "text": "What time does the movie start?",
+      "phonetics": "/wɑt taɪm dʌz ðə ˈmuvi stɑrt/",
+      "level": 1
+    },
+    "Level_1_Ordering_4": {
+      "text": "I'd like a glass of water, please.",
+      "phonetics": "/aɪd laɪk ə glæs ʌv ˈwɔtər pliz/",
+      "level": 1
+    },
+    "Level_1_Shopping_5": {
+      "text": "How much does this cost?",
+      "phonetics": "/haʊ mʌtʃ dʌz ðɪs kɔst/",
+      "level": 1
+    },
+    "Level_1_SelfIntro_6": {
+      "text": "My name is John, and I am from New York.",
+      "phonetics": "/maɪ neɪm ɪz dʒɑn ænd aɪ æm frʌm nu jɔrk/",
+      "level": 1
+    },
+    "Level_1_Confirmation_7": {
+      "text": "Yes, I understand that clearly.",
+      "phonetics": "/jɛs aɪ ˌʌndərˈstænd ðæt ˈklɪrli/",
+      "level": 1
+    },
+    "Level_1_SmallTalk_8": {
+      "text": "How are you doing today?",
+      "phonetics": "/haʊ ɑr ju ˈduɪŋ təˈdeɪ/",
+      "level": 1
+    },
+    "Level_1_Request_9": {
+      "text": "Can you help me with this box?",
+      "phonetics": "/kæn ju hɛlp mi wɪð ðɪs bɑks/",
+      "level": 1
+    },
+    "Level_1_Apology_10": {
+      "text": "I am so sorry for the delay.",
+      "phonetics": "/aɪ æm soʊ ˈsɑri fɔr ðə dɪˈleɪ/",
+      "level": 1
+    },
+    "Level_2_WeatherTalk_11": {
+      "text": "The weather is beautiful today, but it might rain later.",
+      "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ bət ɪt maɪt reɪn ˈleɪtər/",
       "level": 2
+    },
+    "Level_2_Travel_12": {
+      "text": "The airport is about thirty minutes away from here by express train.",
+      "phonetics": "/ðə ˈɛrpɔːrt ɪz əˈbaʊt ˈθɜːrti ˈmɪnɪts əˈweɪ frʌm hɪr baɪ ɪkˈsprɛs treɪn/",
+      "level": 2
+    },
+    "Level_2_Directions_13": {
+      "text": "Can you tell me how to get to the nearest subway station?",
+      "phonetics": "/kæn ju tɛl mi haʊ tu gɛt tu ðə ˈnɪrɪst ˈsʌbˌweɪ ˈsteɪʃən/",
+      "level": 2
+    },
+    "Level_2_Shopping_14": {
+      "text": "I am just browsing, thank you.",
+      "phonetics": "/aɪ æm dʒʌst ˈbraʊzɪŋ θæŋk ju/",
+      "level": 2
+    },
+    "Level_2_Medical_15": {
+      "text": "I have a severe headache and I feel dizzy.",
+      "phonetics": "/aɪ hæv ə sɪˈvɪr ˈhɛdeɪk ænd aɪ fil ˈdɪzi/",
+      "level": 2
+    },
+    "Level_2_SocialMedia_16": {
+      "text": "Don't forget to like, share, and subscribe to my channel.",
+      "phonetics": "/doʊnt fərˈgɛt tu laɪk ʃɛr ænd səbˈskraɪb tu maɪ ˈtʃænəl/",
+      "level": 2
+    },
+    "Level_2_Hobby_17": {
+      "text": "I enjoy reading historical novels in my free time.",
+      "phonetics": "/aɪ ɪnˈdʒɔɪ ˈridɪŋ hɪˈstɔrɪkəl ˈnɑvəlz ɪn maɪ fri taɪm/",
+      "level": 2
+    },
+    "Level_2_Work_18": {
+      "text": "I will send you the required documents by the end of the day.",
+      "phonetics": "/aɪ wɪl sɛnd ju ðə rɪˈkwaɪrd ˈdɑkjumənts baɪ ði ɛnd ʌv ðə deɪ/",
+      "level": 2
+    },
+    "Level_2_Suggestion_19": {
+      "text": "Perhaps we should reschedule the meeting to next week.",
+      "phonetics": "/pərˈhæps wi ʃʊd riˈskɛdʒul ðə ˈmitɪŋ tu nɛkst wik/",
+      "level": 2
+    },
+    "Level_2_Opinion_20": {
+      "text": "In my opinion, the new policy is quite effective.",
+      "phonetics": "/ɪn maɪ əˈpɪnjən ðə nu ˈpɑləsi ɪz kwaɪt ɪˈfɛktɪv/",
+      "level": 2
+    },
+    "Level_2_Restaurant_21": {
+      "text": "Could we get the menu again, please?",
+      "phonetics": "/kʊd wi gɛt ðə ˈmɛnju əˈgɛn pliz/",
+      "level": 2
+    },
+    "Level_2_Future_22": {
+      "text": "I am planning to move to Canada next year.",
+      "phonetics": "/aɪ æm ˈplænɪŋ tu muv tu ˈkænədə nɛkst jɪr/",
+      "level": 2
+    },
+    "Level_2_Problem_23": {
+      "text": "There seems to be a slight misunderstanding about the terms.",
+      "phonetics": "/ðɛr simz tu bi ə slaɪt ˌmɪsˌʌndərˈstændɪŋ əˈbaʊt ðə tɜrmz/",
+      "level": 2
+    },
+    "Level_2_Leisure_24": {
+      "text": "We went hiking in the mountains last weekend.",
+      "phonetics": "/wi wɛnt ˈhaɪkɪŋ ɪn ðə ˈmaʊntənz læst ˈwiˌkɛnd/",
+      "level": 2
+    },
+    "Level_2_Request_25": {
+      "text": "Would you mind closing the window, please?",
+      "phonetics": "/wʊd ju maɪnd ˈkloʊzɪŋ ðə ˈwɪndoʊ pliz/",
+      "level": 2
+    },
+    "Level_3_Technology_26": {
+      "text": "Artificial intelligence is rapidly transforming global industry standards.",
+      "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz ˈræpɪdli trænsˈfɔrmɪŋ ˈgloʊbəl ˈɪndəstri ˈstændərdz/",
+      "level": 3
+    },
+    "Level_3_Business_27": {
+      "text": "We need to discuss the quarterly budget and the projected growth rate.",
+      "phonetics": "/wi nid tu dɪˈskʌs ðə ˈkwɔrtərli ˈbʌdʒət ænd ðə prəˈdʒɛktɪd groʊθ reɪt/",
+      "level": 3
+    },
+    "Level_3_Debate_28": {
+      "text": "I disagree with the premise of your argument on fiscal policy.",
+      "phonetics": "/aɪ ˌdɪsəˈgri wɪð ðə ˈprɛmɪs ʌv jʊər ˈɑrgjumənt ɑn ˈfɪskəl ˈpɑləsi/",
+      "level": 3
+    },
+    "Level_3_Education_29": {
+      "text": "Students must submit their final dissertations by the end of the month.",
+      "phonetics": "/ˈstudənts mʌst səbˈmɪt ðɛr ˈfaɪnəl ˌdɪsərˈteɪʃənz baɪ ði ɛnd ʌv ðə mʌnθ/",
+      "level": 3
+    },
+    "Level_3_Finance_30": {
+      "text": "The volatile market fluctuations affected the portfolio's overall yield.",
+      "phonetics": "/ðə ˈvɑlɪtəl ˈmɑrkɪt ˌflʌktʃuˈeɪʃənz əˈfɛktɪd ðə pɔrtˈfoʊliˌoʊz ˈoʊvərˌɔl jild/",
+      "level": 3
+    },
+    "Level_3_Culture_31": {
+      "text": "The Renaissance period significantly influenced modern Western art forms.",
+      "phonetics": "/ðə ˈrɛnəˌsɑns ˈpɪriəd sɪgˈnɪfɪkəntli ˈɪnfluənst ˈmɑdərn ˈwɛstərn ɑrt fɔrmz/",
+      "level": 3
+    },
+    "Level_3_Science_32": {
+      "text": "The experimental data corroborated the hypothesis regarding cellular function.",
+      "phonetics": "/ði ɪkˌspɛrɪˈmɛntəl ˈdeɪtə kəˈrɑbəˌreɪtɪd ðə haɪˈpɑθəsɪs rɪˈgɑrdɪŋ ˈsɛljələr ˈfʌŋkʃən/",
+      "level": 3
+    },
+    "Level_3_Politics_33": {
+      "text": "The bipartisan committee reached a tentative consensus on the infrastructure bill.",
+      "phonetics": "/ðə baɪˈpɑrtəzən kəˈmɪti ritʃt ə ˈtɛntətɪv kənˈsɛnsəs ɑn ði ˈɪnfrəˌstrʌktʃər bɪl/",
+      "level": 3
+    },
+    "Level_3_Marketing_34": {
+      "text": "We must optimize our outreach strategy to target the desired demographic.",
+      "phonetics": "/wi mʌst ˈɑptɪˌmaɪz ˈaʊr ˈaʊtˌritʃ ˈstrætədʒi tu ˈtɑrgɪt ðə dɪˈzaɪərd ˌdɛməˈgræfɪk/",
+      "level": 3
+    },
+    "Level_3_Conflict_35": {
+      "text": "There are several logistical challenges that we need to overcome immediately.",
+      "phonetics": "/ðɛr ɑr ˈsɛvərəl loʊˈdʒɪstɪkəl ˈtʃælɪndʒɪz ðæt wi nid tu ˌoʊvərˈkʌm ɪˈmidiətli/",
+      "level": 3
+    },
+    "Level_3_Assessment_36": {
+      "text": "The performance metrics indicate a substantial improvement in efficiency.",
+      "phonetics": "/ðə pərˈfɔrməns ˈmɛtrɪks ˈɪndəˌkeɪt ə səbˈstænʃəl ɪmˈpruvmənt ɪn ɪˈfɪʃənsi/",
+      "level": 3
+    },
+    "Level_3_Historical_37": {
+      "text": "Historians are still debating the precise impact of the industrial revolution.",
+      "phonetics": "/hɪˈstɔriənz ɑr stɪl dɪˈbeɪtɪŋ ðə prɪˈsaɪs ˈɪmpækt ʌv ði ɪnˈdʌstriəl ˌrɛvəˈluʃən/",
+      "level": 3
+    },
+    "Level_3_Conclusion_38": {
+      "text": "In conclusion, the gathered evidence overwhelmingly supports the theory.",
+      "phonetics": "/ɪn kənˈkluʒən ðə ˈgæðərd ˈɛvədəns ˌoʊvərˈwɛlmɪŋli səˈpɔrts ðə ˈθɪri/",
+      "level": 3
+    },
+    "Level_3_Explanation_39": {
+      "text": "This diagram illustrates the complex feedback loop within the ecosystem.",
+      "phonetics": "/ðɪs ˈdaɪəgræm ˈɪləstreɪts ðə ˈkɑmplɛks ˈfidˌbæk lup wɪðˈɪn ði ˈikoʊˌsɪstəm/",
+      "level": 3
+    },
+    "Level_3_Requirement_40": {
+      "text": "Compliance with all regulatory frameworks is absolutely mandatory.",
+      "phonetics": "/kəmˈplaɪəns wɪð ɔl ˈrɛgjuləˌtɔri ˈfreɪmˌwɜrks ɪz ˈæbsəlutli ˈmændəˌtɔri/",
+      "level": 3
+    },
+    "Level_4_Philosophy_41": {
+      "text": "The fundamental dichotomy between nature and nurture is widely debated.",
+      "phonetics": "/ðə ˌfʌndəˈmɛntəl daɪˈkɑtəmi bɪˈtwin ˈneɪtʃər ænd ˈnɜːrtʃər ɪz ˈwaɪdli dɪˈbeɪtɪd/",
+      "level": 4
+    },
+    "Level_4_Environment_42": {
+      "text": "Mitigating anthropogenic climate change requires global cooperation and immediate action.",
+      "phonetics": "/ˈmɪtɪˌgeɪtɪŋ ˌænθrəpoʊˈdʒɛnɪk ˈklaɪmət tʃeɪndʒ rɪˈkwaɪərz ˈgloʊbəl koʊˌɑpəˈreɪʃən ænd ɪˈmidiət ˈækʃən/",
+      "level": 4
+    },
+    "Level_4_Literature_43": {
+      "text": "The author utilizes stream of consciousness to explore the protagonist's inner turmoil.",
+      "phonetics": "/ði ˈɔθər ˈjutɪlaɪzɪz strim ʌv ˈkɑnʃəsnɪs tu ɪkˈsplɔr ðə proʊˈtæɡənɪsts ˈɪnər ˈtɜrmɔɪl/",
+      "level": 4
+    },
+    "Level_4_Psychology_44": {
+      "text": "Cognitive dissonance often arises when an individual holds contradictory beliefs simultaneously.",
+      "phonetics": "/ˈkɑgnətɪv ˈdɪsənəns ˈɔfən əˈraɪzɪz wɛn æn ˌɪndəˈvɪdʒuəl hoʊldz ˌkɑntrəˈdɪktəri bɪˈlifs ˌsaɪməlˈteɪniəsli/",
+      "level": 4
+    },
+    "Level_4_Economics_45": {
+      "text": "The government implemented quantitative easing to inject liquidity into the financial system.",
+      "phonetics": "/ðə ˈgʌvərnmənt ˌɪmplɪˈmɛntɪd ˈkwɑntɪˌteɪtɪv ˈizɪŋ tu ɪnˈdʒɛkt lɪˈkwɪdəti ˈɪntu ðə faɪˈnænʃəl ˈsɪstəm/",
+      "level": 4
+    },
+    "Level_4_Statistical_46": {
+      "text": "We need to verify the null hypothesis using a rigorous statistical methodology.",
+      "phonetics": "/wi nid tu ˈvɛrəˌfaɪ ðə nʌl haɪˈpɑθəsɪs ˈjuzɪŋ ə ˈrɪgərəs stəˈtɪstɪkəl ˌmɛθəˈdɑlədʒi/",
+      "level": 4
+    },
+    "Level_4_Sociology_47": {
+      "text": "Socioeconomic stratification perpetuates intergenerational inequality.",
+      "phonetics": "/ˌsoʊsiˌoʊˌɛkəˈnɑmɪk ˌstrætɪfɪˈkeɪʃən pərˈpɛtʃuˌeɪts ˌɪntərˌdʒɛnəˈreɪʃənəl ˌɪnɪˈkwɑləti/",
+      "level": 4
+    },
+    "Level_4_Judicial_48": {
+      "text": "The appeals court upheld the lower court's finding due to insufficient evidence for reversal.",
+      "phonetics": "/ði əˈpilz kɔrt ʌpˈhɛld ðə ˈloʊər kɔrts ˈfaɪndɪŋ du tu ˌɪnsəˈfɪʃənt ˈɛvədəns fɔr rɪˈvɜrsəl/",
+      "level": 4
+    },
+    "Level_4_Theoretical_49": {
+      "text": "The concept posits a paradigm shift in the fundamental understanding of matter and energy.",
+      "phonetics": "/ðə ˈkɑnsɛpt ˈpɑzɪts ə ˈpɛrəˌdaɪm ʃɪft ɪn ðə ˌfʌndəˈmɛntəl ˌʌndərˈstændɪŋ ʌv ˈmætər ænd ˈɛnərdʒi/",
+      "level": 4
+    },
+    "Level_4_ComplexRequest_50": {
+      "text": "Could you provide a detailed comparative analysis of the two competing architectural proposals?",
+      "phonetics": "/kʊd ju prəˈvaɪd ə ˈditeɪld kəmˈpɛrətɪv əˈnæləsɪs ʌv ðə tu kəmˈpitɪŋ ˌɑrkɪˈtɛktʃərəl prəˈpoʊzəlz/",
+      "level": 4
+    },
+    "Level_5_Physics_51": {
+      "text": "The entanglement of quantum particles demonstrates non-local correlation across vast spatial distances.",
+      "phonetics": "/ði ɪnˈtæŋgəlmənt ʌv ˈkwɑntəm ˈpɑrtɪklz ˈdɛmənˌstreɪts nɑn-ˈloʊkəl ˌkɔrəˈleɪʃən əˈkrɔs væst ˈspeɪʃəl ˈdɪstənsɪz/",
+      "level": 5
+    },
+    "Level_5_Legal_52": {
+      "text": "The principle of stare decisis mandates that courts adhere to precedent when adjudicating similar cases.",
+      "phonetics": "/ðə ˈprɪnsəpəl ʌv ˈstɑreɪ dɪˈsaɪsɪs ˈmændeɪts ðæt kɔrts ædˈhɪr tu ˈprɛsɪdənt wɛn əˈdʒuːdɪˌkeɪtɪŋ ˈsɪmələr ˈkeɪsɪz/",
+      "level": 5
+    },
+    "Level_5_Biology_53": {
+      "text": "The process of eukaryotic gene expression is regulated by intricate epigenetic mechanisms.",
+      "phonetics": "/ðə ˈproʊsɛs ʌv juˌkæriˈɑtɪk dʒin ɪkˈsprɛʃən ɪz ˈrɛgjuˌleɪtɪd baɪ ˈɪntrɪkət ˌɛpɪdʒɪˈnɛtɪk ˈmɛkəˌnɪzəmz/",
+      "level": 5
+    },
+    "Level_5_Philosophy_54": {
+      "text": "Ontological hermeneutics explores the nature of being through the framework of interpretation.",
+      "phonetics": "/ˌɑntəˈlɑdʒɪkəl ˌhɜrməˈnutɪks ɪkˈsplɔrz ðə ˈneɪtʃər ʌv ˈbiɪŋ θru ðə ˈfreɪmwɜrk ʌv ˌɪntərprɪˈteɪʃən/",
+      "level": 5
+    },
+    "Level_5_Astronomy_55": {
+      "text": "Astrophysicists are seeking observational evidence of primordial gravitational waves and cosmic inflation.",
+      "phonetics": "/ˌæstroʊˈfɪzɪsɪsts ɑr ˈsikɪŋ ˌɑbzərˈveɪʃənəl ˈɛvədəns ʌv praɪˈmɔrdiəl ˌgrævɪˈteɪʃənəl weɪvz ænd ˈkɑzmɪk ɪnˈfleɪʃən/",
+      "level": 5
     }
   },
   "Chinese": {
-    "你好世界": {
-      "text": "你好，这是一个测试。",
-      "phonetics": "nǐ hǎo, zhè shì yí gè cè shì.",
+    "Level_1_Greetings_51": {
+      "text": "你好，这是一个测试，很高兴认识你。",
+      "phonetics": "nǐ hǎo, zhè shì yí gè cè shì, hěn gāo xìng rèn shi nǐ.",
       "level": 1
     },
-    "天气话题": {
-      "text": "今天的天气真好。",
-      "phonetics": "jīn tiān de tiān qì zhēn hǎo.",
+    "Level_1_Time_52": {
+      "text": "电影什么时候开始？",
+      "phonetics": "diàn yǐng shén me shí hou kāi shǐ?",
       "level": 1
     },
-    "科技发展": {
-      "text": "人工智能正在改变世界。",
-      "phonetics": "rén gōng zhì néng zhèng zài gǎi biàn shì jiè.",
+    "Level_1_Ordering_53": {
+      "text": "我想点一杯水，谢谢。",
+      "phonetics": "wǒ xiǎng diǎn yī bēi shuǐ, xiè xie.",
+      "level": 1
+    },
+    "Level_1_DailyLife_54": {
+      "text": "我每天早上七点起床，先去冲一杯咖啡。",
+      "phonetics": "wǒ měi tiān zǎo shang qī diǎn qǐ chuáng, xiān qù chōng yī bēi kā fēi.",
+      "level": 1
+    },
+    "Level_1_Weather_55": {
+      "text": "今天的天气真好，空气非常清新。",
+      "phonetics": "jīn tiān de tiān qì zhēn hǎo, kōng qì fēi cháng qīng xīn.",
+      "level": 1
+    },
+    "Level_1_Shopping_56": {
+      "text": "请问这个多少钱？",
+      "phonetics": "qǐng wèn zhè ge duō shǎo qián?",
+      "level": 1
+    },
+    "Level_1_Location_57": {
+      "text": "洗手间在哪里？",
+      "phonetics": "xǐ shǒu jiān zài nǎ lǐ?",
+      "level": 1
+    },
+    "Level_1_Food_58": {
+      "text": "我不太能吃辣。",
+      "phonetics": "wǒ bú tài néng chī là.",
+      "level": 1
+    },
+    "Level_1_Check_59": {
+      "text": "好的，我知道了。",
+      "phonetics": "hǎo de, wǒ zhī dào le.",
+      "level": 1
+    },
+    "Level_1_Farewell_60": {
+      "text": "再见，明天见。",
+      "phonetics": "zài jiàn, míng tiān jiàn.",
+      "level": 1
+    },
+    "Level_2_Travel_61": {
+      "text": "机场离这里大约三十分钟，坐地铁更方便。",
+      "phonetics": "jī chǎng lí zhè lǐ dà yuē sān shí fēn zhōng, zuò dì tiě gèng fāng biàn.",
       "level": 2
     },
-    "日常生活": {
-      "text": "我每天早上七点起床。",
-      "phonetics": "wǒ měi tiān zǎo shang qī diǎn qǐ chuáng.",
-      "level": 1
-    },
-    "旅行出行": {
-      "text": "机场离这里大约三十分钟。",
-      "phonetics": "jī chǎng lí zhè lǐ dà yuē sān shí fēn zhōng.",
+    "Level_2_Directions_62": {
+      "text": "您能告诉我最近的地铁站在哪里吗？",
+      "phonetics": "nín néng gào sù wǒ zuì jìn de dì tiě zhàn zài nǎ lǐ ma?",
       "level": 2
+    },
+    "Level_2_Shopping_63": {
+      "text": "请问这件外套有其他颜色或尺码吗？",
+      "phonetics": "qǐng wèn zhè jiàn wài tào yǒu qí tā yán sè huò chǐ mǎ ma?",
+      "level": 2
+    },
+    "Level_2_Medical_64": {
+      "text": "我感觉喉咙很痛，还有点发烧。",
+      "phonetics": "wǒ gǎn jué hóu lóng hěn tòng, hái yǒu diǎn fā shāo.",
+      "level": 2
+    },
+    "Level_2_Internet_65": {
+      "text": "请把这个链接发到群里，让大家点赞。",
+      "phonetics": "qǐng bǎ zhè gè liàn jiē fā dào qún lǐ, ràng dà jiā diǎn zàn.",
+      "level": 2
+    },
+    "Level_2_Job_66": {
+      "text": "我下周会提交这份详细的工作报告。",
+      "phonetics": "wǒ xià zhōu huì tí jiāo zhè fèn xiáng xì de gōng zuò bào gào.",
+      "level": 2
+    },
+    "Level_2_FuturePlan_67": {
+      "text": "我计划明年去欧洲旅行一个月。",
+      "phonetics": "wǒ jì huà míng nián qù ōu zhōu lǚ xíng yī gè yuè.",
+      "level": 2
+    },
+    "Level_2_WeatherDes_68": {
+      "text": "今天温度骤降，请注意保暖。",
+      "phonetics": "jīn tiān wēn dù zhòu jiàng, qǐng zhù yì bǎo nuǎn.",
+      "level": 2
+    },
+    "Level_2_PoliteRequest_69": {
+      "text": "麻烦您稍微等我一下，我马上回来。",
+      "phonetics": "má fán nín shāo wēi děng wǒ yī xià, wǒ mǎ shàng huí lai.",
+      "level": 2
+    },
+    "Level_2_Opinion_70": {
+      "text": "我认为这个方案可行性很高。",
+      "phonetics": "wǒ rèn wéi zhè ge fāng àn kě xíng xìng hěn gāo.",
+      "level": 2
+    },
+    "Level_2_Hobby_71": {
+      "text": "我平时喜欢在周末去公园跑步。",
+      "phonetics": "wǒ píng shí xǐ huan zài zhōu mò qù gōng yuán pǎo bù.",
+      "level": 2
+    },
+    "Level_2_Transportation_72": {
+      "text": "从这里到火车站需要换乘一次。",
+      "phonetics": "cóng zhè lǐ dào huǒ chē zhàn xū yào huàn chéng yī cì.",
+      "level": 2
+    },
+    "Level_2_Error_73": {
+      "text": "不好意思，我刚才说错了。",
+      "phonetics": "bù hǎo yì si, wǒ gāng cái shuō cuò le.",
+      "level": 2
+    },
+    "Level_2_Invitation_74": {
+      "text": "您有空一起吃晚饭吗？",
+      "phonetics": "nín yǒu kòng yī qǐ chī wǎn fàn ma?",
+      "level": 2
+    },
+    "Level_2_Advice_75": {
+      "text": "我觉得你应该先休息一下。",
+      "phonetics": "wǒ jué de nǐ yīng gāi xiān xiū xi yī xià.",
+      "level": 2
+    },
+    "Level_3_Business_76": {
+      "text": "我们需要在散会之前，把季度预算和预估增长率讨论清楚。",
+      "phonetics": "wǒ men xū yào zài sàn huì zhī qián, bǎ jì dù yù suàn hé yù gū zēng zhǎng lǜ tǎo lùn qīng chǔ.",
+      "level": 3
+    },
+    "Level_3_Technology_77": {
+      "text": "人工智能正在快速地改变全球的行业标准。",
+      "phonetics": "rén gōng zhì néng zhèng zài kuài sù de gǎi biàn quán qiú de háng yè biāo zhǔn.",
+      "level": 3
+    },
+    "Level_3_FoodCulture_78": {
+      "text": "四川火锅以其麻辣鲜香的味道闻名于世。",
+      "phonetics": "sì chuān huǒ guō yǐ qí má là xiān xiāng de wèi dào wén míng yú shì.",
+      "level": 3
+    },
+    "Level_3_History_79": {
+      "text": "秦始皇统一六国，建立了中国历史上第一个大一统王朝。",
+      "phonetics": "qín shǐ huáng tǒng yī liù guó, jiàn lì le zhōng guó lì shǐ shang dì yī gè dà yī tǒng wáng cháo.",
+      "level": 3
+    },
+    "Level_3_Finance_80": {
+      "text": "宏观经济的波动对中小企业的生存产生了巨大影响。",
+      "phonetics": "hóng guān jīng jì de bō dòng duì zhōng xiǎo qǐ yè de shēng cún chǎn shēng le jù dà yǐng xiǎng.",
+      "level": 3
+    },
+    "Level_3_Academic_81": {
+      "text": "这篇论文的论证逻辑严密，引用资料准确。",
+      "phonetics": "zhè piān lùn zhèng de lùn zhèng luó jí yán mì, yǐn yòng zī liào zhǔn què.",
+      "level": 3
+    },
+    "Level_3_Social_82": {
+      "text": "社会保障体系的完善是保障公民基本权益的关键。",
+      "phonetics": "shè huì bǎo zhàng tǐ xì de wán shàn shì bǎo zhàng gōng mín jī běn quán yì de guān jiàn.",
+      "level": 3
+    },
+    "Level_3_Environment_83": {
+      "text": "保护生物多样性是当前人类面临的重大挑战之一。",
+      "phonetics": "bǎo hù shēng wù duō yàng xìng shì dāng qián rén lèi miàn lín de zhòng dà tiǎo zhàn zhī yī.",
+      "level": 3
+    },
+    "Level_3_Negotiation_84": {
+      "text": "关于付款方式和交付日期，我们是否可以进一步协商？",
+      "phonetics": "guān yú fù kuǎn fāng shì hé jiāo fù rì qī, wǒ men shì fǒu kě yǐ jìn yī bù xié shāng?",
+      "level": 3
+    },
+    "Level_3_Media_85": {
+      "text": "这个新闻报道存在片面性，我们应该多方核实。",
+      "phonetics": "zhè ge xīn wén bào dào cún zài piàn miàn xìng, wǒ men yīng gāi duō fāng hé shí.",
+      "level": 3
+    },
+    "Level_3_Idiom_86": {
+      "text": "他的成功并非一蹴而就，而是日积月累的结果。",
+      "phonetics": "tā de chéng gōng bìng fēi yī cù ér jiù, ér shì rì jī yuè lěi de jié guǒ.",
+      "level": 3
+    },
+    "Level_3_Formal_87": {
+      "text": "感谢您的莅临指导，为我们提供了宝贵意见。",
+      "phonetics": "gǎn xiè nín de lì lín zhǐ dǎo, wèi wǒ men tí gōng le bǎo guì yì jiàn.",
+      "level": 3
+    },
+    "Level_3_Description_88": {
+      "text": "这座建筑融合了传统与现代的设计理念。",
+      "phonetics": "zhè zuò jiàn zhù róng hé le chuán tǒng yǔ xiàn dài de shè jì lǐ niàn.",
+      "level": 3
+    },
+    "Level_3_Argument_89": {
+      "text": "我们必须对潜在的风险保持警惕，并制定应急预案。",
+      "phonetics": "wǒ men bì xū duì qián zài de fēng xiǎn bǎo chí jǐng tì, bìng zhì dìng yìng jí yù àn.",
+      "level": 3
+    },
+    "Level_3_Culture_90": {
+      "text": "春节是中国最重要的传统节日，家家户户都要团聚。",
+      "phonetics": "chūn jié shì zhōng guó zuì zhòng yào de chuán tǒng jié rì, jiā jiā hù hù dōu yào tuán jù.",
+      "level": 3
+    },
+    "Level_4_Poem_91": {
+      "text": "欲穷千里目，更上一层楼。",
+      "phonetics": "yù qióng qiān lǐ mù, gèng shàng yī céng lóu.",
+      "level": 4
+    },
+    "Level_4_Classical_92": {
+      "text": "道可道，非常道；名可名，非常名。",
+      "phonetics": "dào kě dào, fēi cháng dào; míng kě míng, fēi cháng míng.",
+      "level": 4
+    },
+    "Level_4_Literature_93": {
+      "text": "红楼梦是中国古典小说的巅峰之作，具有极高的艺术价值。",
+      "phonetics": "hóng lóu mèng shì zhōng guó gǔ diǎn xiǎo shuō de diān fēng zhī zuò, jù yǒu jí gāo de yì shù jià zhí.",
+      "level": 4
+    },
+    "Level_4_Philosophy_94": {
+      "text": "事物的本质在于其矛盾性，矛盾是事物发展的根本动力。",
+      "phonetics": "shì wù de běn zhì zài yú qí máo dùn xìng, máo dùn shì shì wù fā zhǎn de gēn běn dòng lì.",
+      "level": 4
+    },
+    "Level_4_Scientific_95": {
+      "text": "量子力学的非定域性揭示了宏观世界难以理解的现象。",
+      "phonetics": "liàng zǐ lì xué de fēi dìng yù xìng jiē shì le hóng guān shì jiè nán yǐ lǐ jiě de xiàn xiàng.",
+      "level": 4
+    },
+    "Level_5_TongueTwister_96": {
+      "text": "八百标兵奔北坡，炮兵并排北边跑，炮兵怕把标兵碰，标兵怕碰炮兵炮。",
+      "phonetics": "bā bǎi biāo bīng bēn běi pō, pào bīng bìng pái běi biān pǎo, pào bīng pà bǎ biāo bīng pèng, biāo bīng pà pèng pào bīng pào.",
+      "level": 5
+    },
+    "Level_5_AbstractTheory_97": {
+      "text": "意识形态的异化与再生产，构成了后现代社会权力运作的核心矛盾。",
+      "phonetics": "yì shi xíng tài de yì huà yǔ zài shēng chǎn, gòu chéng le hòu xiàn dài shè huì quán lì yùn zuò de hé xīn máo dùn.",
+      "level": 5
+    },
+    "Level_5_TongueTwister_98": {
+      "text": "黑化肥发灰，灰化肥发黑。",
+      "phonetics": "hēi huà féi fā huī, huī huà féi fā hēi.",
+      "level": 5
+    },
+    "Level_5_TongueTwister_99": {
+      "text": "石狮寺有四十四只石狮子，不知是四十四只石狮子，还是四十死石狮子。",
+      "phonetics": "shí shī sì yǒu sì shí sì zhī shí shī zi, bù zhī shì sì shí sì zhī shí shī zi, hái shì sì shí sǐ shí shī zi.",
+      "level": 5
+    },
+    "Level_5_ClassicalQuote_100": {
+      "text": "知之为知之，不知为不知，是知也。",
+      "phonetics": "zhī zhī wèi zhī zhī, bù zhī wèi bù zhī, shì zhī yě.",
+      "level": 5
     }
   }
 }

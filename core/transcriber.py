@@ -101,32 +101,39 @@ class WhisperTranscriber:
         """Load WhisperX for enhanced alignment (optional)."""
         try:
             import whisperx
-            
-            # Load WhisperX model
+
+            # WhisperX NEW API (3.x)
             self.whisperx_model = whisperx.load_model(
-                self.model_size,
-                self.device,
+                whisper_arch=self.model_size,
+                device=self.device,
                 compute_type="float16" if self.device == "cuda" else "int8"
             )
-            
-            # Load alignment model for the target language
+
+            # Load alignment model
             self.whisperx_align_model, self.whisperx_metadata = whisperx.load_align_model(
-                language_code=self.language,
-                device=self.device
-            )
-            
+                    language_code=self.language,
+                    device=self.device
+                )
+
             print(f"WhisperX alignment model loaded for language: {self.language}")
-            
-        except ImportError:
+
+        except ImportError as e:
+            print(f"ImportError details: {e}")  # 添加详细错误
+            import traceback
+            traceback.print_exc()  # 打印完整堆栈
             warnings.warn(
-                "WhisperX not available. Install with: pip install git+https://github.com/m-bain/whisperX.git\n"
-                "Falling back to standard Whisper word-level timestamps."
+                "WhisperX not available. Install with: pip install whisperx[audio]\n"
+                "Falling back to standard Whisper."
             )
             self.use_whisperx = False
+
         except Exception as e:
+            print(f"Exception details: {e}")  # 添加详细错误
+            import traceback
+            traceback.print_exc()  # 打印完整堆栈
             warnings.warn(f"Failed to load WhisperX: {e}\nUsing standard Whisper.")
             self.use_whisperx = False
-    
+
     def _split_chinese_characters(self, text: str, start_time: float, end_time: float) -> List[Dict]:
         """
         Split Chinese text into individual characters with proportional timestamps.

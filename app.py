@@ -32,21 +32,6 @@ except ImportError:
     warnings.warn("streamlit-audiorec not available. Using file upload only.")
     AUDIOREC_AVAILABLE = False
 
-# Import TTS libraries
-try:
-    import pyttsx3
-    PYTTSX3_AVAILABLE = True
-except ImportError:
-    PYTTSX3_AVAILABLE = False
-    warnings.warn("pyttsx3 not available. TTS will use fallback mode.")
-
-try:
-    from gtts import gTTS
-    GTTS_AVAILABLE = True
-except ImportError:
-    GTTS_AVAILABLE = False
-    warnings.warn("gTTS not available. Online TTS fallback disabled.")
-
 
 # Constants for audio playback timing
 # This offset prevents playing into the next word due to requestAnimationFrame timing (~60fps = ~16ms)
@@ -131,18 +116,19 @@ class AudioProcessor:
             
             # Initialize voice cloner (optional)
             try:
-                    self.voice_cloner = VoiceCloner(
-                        model_dir="models/indextts2"
-                    )
+                self.voice_cloner = VoiceCloner(
+                    model_dir="models/indextts2"
+                )
             except Exception as e:
-                    warnings.warn(f"Voice cloner not available: {e}")
-                    self.voice_cloner = None
+                warnings.warn(f"Voice cloner not available: {e}")
+                self.voice_cloner = None
             
             self.model_loaded = True
             
         except Exception as e:
             st.error(f"Failed to load models: {e}")
             st.info("Please run: python scripts/download_models.py")
+            raise
     
     def generate_standard_audio(self, text):
         """Generate standard pronunciation audio using TTS."""
@@ -151,7 +137,8 @@ class AudioProcessor:
         
         try:
             # Try pyttsx3 first (offline)
-            if PYTTSX3_AVAILABLE:
+            try:
+                import pyttsx3
                 output_path = output_dir / "standard_pronunciation.wav"
                 engine = pyttsx3.init()
                 # Set properties for better quality
@@ -164,15 +151,20 @@ class AudioProcessor:
                 
                 if output_path.exists():
                     return str(output_path)
+            except:
+                pass
             
             # Fallback to gTTS (requires internet)
-            if GTTS_AVAILABLE:
+            try:
+                from gtts import gTTS
                 output_path = output_dir / "standard_pronunciation.mp3"
                 tts = gTTS(text=text, lang='en', slow=False)
                 tts.save(str(output_path))
                 
                 if output_path.exists():
                     return str(output_path)
+            except:
+                pass
             
             return None
             
@@ -246,6 +238,28 @@ class AudioProcessor:
         return result
 
 
+# ===== CRITICAL FIX: Cache the AudioProcessor =====
+@st.cache_resource
+def load_audio_processor():
+    """Load and cache the audio processor with all models.
+    
+    This decorator ensures models are only loaded once and reused across
+    Streamlit reruns, preventing CUDA memory conflicts.
+    """
+    print("=" * 60)
+    print("Initializing AudioProcessor (this should only happen once)...")
+    print("=" * 60)
+    
+    processor = AudioProcessor()
+    processor.load_models()
+    
+    print("=" * 60)
+    print("AudioProcessor initialization complete!")
+    print("=" * 60)
+    
+    return processor
+
+
 def load_practice_sentences():
     """Load practice sentences from JSON file."""
     sentences_file = Path(__file__).parent / "data" / "sentences.json"
@@ -297,42 +311,39 @@ with st.sidebar:
     st.divider()
     st.markdown("### 🤖 System Status")
     
-    if "processor" not in st.session_state:
-        with st.spinner("Initializing AI Engine..."):
-            st.session_state.processor = AudioProcessor()
-            try:
-                st.session_state.processor.load_models()
-                st.success("✅ AI Engine Ready")
-            except Exception as e:
-                st.error(f"❌ Failed to load: {e}")
-                st.info("Run: `python scripts/download_models.py`")
-    else:
-        if st.session_state.processor.model_loaded:
-            st.success("✅ AI Engine Ready")
-            
-            # Show loaded components
-            st.markdown("**Loaded Components:**")
-            st.markdown("- ✅ Whisper Transcriber")
-            
-            # Check if WhisperX is available
-            if hasattr(st.session_state.processor.transcriber, 'use_whisperx') and \
-               st.session_state.processor.transcriber.use_whisperx:
-                st.markdown("- ✨ WhisperX Enhanced Alignment")
-                st.markdown("  - Word-level for Chinese")
-                st.markdown("  - Phoneme-level for English")
-            else:
-                st.markdown("- ⚠️ WhisperX (not installed)")
-                st.caption("Install for better accuracy")
-            
-            st.markdown("- ✅ Pronunciation Scorer")
-            
-            if st.session_state.processor.voice_cloner and \
-               st.session_state.processor.voice_cloner.is_available():
-                st.markdown("- ✅ Voice Cloner")
-            else:
-                st.markdown("- ⚠️ Voice Cloner (fallback mode)")
+    # Load processor using cached function
+    try:
+        processor = load_audio_processor()
+        st.session_state.processor = processor
+        st.success("✅ AI Engine Ready")
+        
+        # Show loaded components
+        st.markdown("**Loaded Components:**")
+        st.markdown("- ✅ Whisper Transcriber")
+        
+        # Check if WhisperX is available
+        if hasattr(processor.transcriber, 'use_whisperx') and \
+           processor.transcriber.use_whisperx:
+            st.markdown("- ✨ WhisperX Enhanced Alignment")
+            st.markdown("  - Word-level for Chinese")
+            st.markdown("  - Phoneme-level for English")
         else:
-            st.warning("⚠️ Models not loaded")
+            st.markdown("- ⚠️ WhisperX (not installed)")
+            st.caption("Install for better accuracy")
+        
+        st.markdown("- ✅ Pronunciation Scorer")
+        
+        if processor.voice_cloner and processor.voice_cloner.is_available():
+            st.markdown("- ✅ Voice Cloner")
+        else:
+            st.markdown("- ⚠️ Voice Cloner (fallback mode)")
+            
+    except Exception as e:
+        st.error(f"❌ Failed to load models: {e}")
+        st.info("Run: `python scripts/download_models.py`")
+        import traceback
+        with st.expander("Error Details"):
+            st.code(traceback.format_exc())
     
     st.divider()
     st.markdown("### 📊 About")
@@ -384,23 +395,28 @@ with col1:
     
     st.markdown("#### 🔊 Standard Audio")
     if st.button("▶️ Play Standard (Native)"):
-        with st.spinner("Generating standard pronunciation..."):
-            audio_path = st.session_state.processor.generate_standard_audio(target_text)
-            
-            if audio_path and Path(audio_path).exists():
-                st.success("✅ Audio generated!")
-                st.audio(audio_path)
-            else:
-                st.warning("⚠️ TTS not available. Please install pyttsx3 or gTTS:")
-                st.code("pip install pyttsx3 gTTS", language="bash")
-                st.info("📝 Standard pronunciation text:")
-                st.markdown(f"**{target_text}**")
+        if "processor" in st.session_state:
+            with st.spinner("Generating standard pronunciation..."):
+                audio_path = st.session_state.processor.generate_standard_audio(target_text)
+                
+                if audio_path and Path(audio_path).exists():
+                    st.success("✅ Audio generated!")
+                    st.audio(audio_path)
+                else:
+                    st.warning("⚠️ TTS not available. Please install pyttsx3 or gTTS:")
+                    st.code("pip install pyttsx3 gTTS", language="bash")
+                    st.info("📝 Standard pronunciation text:")
+                    st.markdown(f"**{target_text}**")
+        else:
+            st.error("Models not loaded yet!")
     
     st.markdown("#### ✨ AI Voice Clone")
     st.caption("Hear this sentence in YOUR voice!")
     
     if st.button("🎨 Generate My Voice"):
-        if "last_audio_path" in st.session_state:
+        if "processor" not in st.session_state:
+            st.error("Models not loaded yet!")
+        elif "last_audio_path" in st.session_state:
             with st.spinner("Cloning your voice..."):
                 cloned_path = st.session_state.processor.clone_voice(
                     st.session_state.last_audio_path,
@@ -470,7 +486,7 @@ with col2:
     # Analysis button
     if audio_file is not None:
         if st.button("🔍 Analyze Pronunciation", type="primary"):
-            if not st.session_state.processor.model_loaded:
+            if "processor" not in st.session_state or not st.session_state.processor.model_loaded:
                 st.error("❌ Models not loaded. Please check sidebar for status.")
             else:
                 with st.spinner("🔬 Analyzing phonemes, pitch, and rhythm..."):
@@ -487,6 +503,9 @@ with col2:
                     except Exception as e:
                         st.error(f"❌ Analysis failed: {e}")
                         st.info("Please check that audio file is valid and models are loaded.")
+                        import traceback
+                        with st.expander("Error Details"):
+                            st.code(traceback.format_exc())
 
 # Display results if available
 if "last_result" in st.session_state:
@@ -500,13 +519,6 @@ if "last_result" in st.session_state:
     
     with m1:
         score = result['total_score']
-        # Determine color based on score
-        if score >= 80:
-            delta_color = "normal"
-        elif score >= 60:
-            delta_color = "off"
-        else:
-            delta_color = "inverse"
         st.metric("Overall Score", f"{score}/100")
     
     with m2:

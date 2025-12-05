@@ -1,0 +1,22 @@
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 -f https://mirrors.aliyun.com/pytorch-wheels/cu118/
+pip install numpy==1.24.3 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install transformers==4.31.0 --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install huggingface-hub tokenizers safetensors filelock packaging pyyaml regex tqdm -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install accelerate==0.21.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install protobuf==3.20.3 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pyannote-audio==2.1.1 --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pyannote-core pyannote-database pyannote-pipeline pytorch-lightning speechbrain -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install faster-whisper==0.10.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install whisperx==3.1.1 --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install openai-whisper -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install dtw-python librosa soundfile pypinyin scipy matplotlib requests streamlit==1.28.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+
+pip install streamlit-audiorec -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+
+python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+python -c "import whisperx; print('WhisperX OK')"
+python -c "from core.chinese import ChineseScoringPipeline; print('中文流水线 OK')"
+
+streamlit run app.py
