@@ -19,10 +19,19 @@ try:
         TextComparator,
         VoiceCloner
     )
+    # Import Chinese-specific pipeline
+    try:
+        from core.chinese import ChineseScoringPipeline
+        CHINESE_PIPELINE_AVAILABLE = True
+    except ImportError:
+        CHINESE_PIPELINE_AVAILABLE = False
+        warnings.warn("Chinese scoring pipeline not available")
+    
     CORE_AVAILABLE = True
 except Exception as e:
     warnings.warn(f"Core modules not fully available: {e}")
     CORE_AVAILABLE = False
+    CHINESE_PIPELINE_AVAILABLE = False
 
 # Import audio recording component
 try:
@@ -34,25 +43,14 @@ except ImportError:
 
 
 # Constants for audio playback timing
-# This offset prevents playing into the next word due to requestAnimationFrame timing (~60fps = ~16ms)
 PLAYBACK_END_OFFSET = 0.01  # 10ms offset before end time
 
 
 def find_word_timestamp(word, word_timestamps):
-    """
-    Find timestamp for a word by matching text instead of relying on index.
-    
-    Args:
-        word: Word text to find
-        word_timestamps: List of timestamp dictionaries from Whisper
-    
-    Returns:
-        Dictionary with word, start, end, probability or None if not found
-    """
+    """Find timestamp for a word by matching text instead of relying on index."""
     if not word_timestamps:
         return None
     
-    # Clean the word for matching
     word_lower = word.lower().strip()
     
     # Try exact match first
@@ -61,9 +59,7 @@ def find_word_timestamp(word, word_timestamps):
         if ts_word == word_lower:
             return ts
     
-    # Try fuzzy match (word contained in timestamp or vice versa)
-    # Require that the shorter word is at least 70% of the longer word's length
-    # This prevents most false positives while allowing reasonable partial matches
+    # Try fuzzy match
     for ts in word_timestamps:
         ts_word = ts.get('word', '').lower().strip()
         min_len = min(len(word_lower), len(ts_word))
@@ -83,6 +79,7 @@ class AudioProcessor:
         self.transcriber = None
         self.scorer = None
         self.voice_cloner = None
+        self.chinese_pipeline = None  # 中文专用管道
         
     def load_models(self):
         """Load all AI models."""
@@ -114,6 +111,18 @@ class AudioProcessor:
             # Initialize scorer
             self.scorer = PronunciationScorer()
             
+            # Initialize Chinese pipeline if available
+            if CHINESE_PIPELINE_AVAILABLE:
+                try:
+                    self.chinese_pipeline = ChineseScoringPipeline(
+                        device=getattr(self.transcriber, 'device', 'cpu')
+                    )
+                    self.chinese_pipeline.load_models(model_size="base")
+                    print("✅ Chinese scoring pipeline loaded")
+                except Exception as e:
+                    warnings.warn(f"Chinese pipeline not available: {e}")
+                    self.chinese_pipeline = None
+            
             # Initialize voice cloner (optional)
             try:
                 self.voice_cloner = VoiceCloner(
@@ -130,41 +139,56 @@ class AudioProcessor:
             st.info("Please run: python scripts/download_models.py")
             raise
     
-    def generate_standard_audio(self, text):
-        """Generate standard pronunciation audio using TTS."""
+    def generate_standard_audio(self, text, language="en", voice_gender="female"):
+        """Generate standard pronunciation audio using IndexTTS2 with fixed reference speakers."""
         output_dir = Path("temp_audio")
         output_dir.mkdir(exist_ok=True)
+        output_path = output_dir / "standard_pronunciation.wav"
+        
+        # Determine if Chinese
+        is_chinese = language.startswith('zh') or bool(re.search(r'[\u4e00-\u9fff]', text))
+        
+        # Select reference audio based on language and gender
+        ref_dir = Path("references")
+        if is_chinese:
+            ref_audio = ref_dir / f"standard_{voice_gender}_zh.wav"
+        else:
+            ref_audio = ref_dir / f"standard_{voice_gender}_en.wav"
         
         try:
-            # Try pyttsx3 first (offline)
+            # METHOD 1: Use IndexTTS2 with fixed reference speaker (BEST QUALITY)
+            if self.voice_cloner and self.voice_cloner.is_available():
+                if ref_audio.exists():
+                    print(f"🎙️ Generating standard audio using IndexTTS2 with {voice_gender} {language} reference")
+                    success = self.voice_cloner.clone_voice(
+                        text=text,
+                        reference_audio_path=str(ref_audio),
+                        output_path=output_path
+                    )
+                    
+                    if success and output_path.exists():
+                        print("✅ Standard audio generated successfully with IndexTTS2")
+                        return str(output_path)
+                else:
+                    warnings.warn(f"Reference audio not found: {ref_audio}")
+                    print(f"⚠️ Please add reference audio files to: {ref_dir}/")
+                    print(f"   Required: standard_male_en.wav, standard_female_en.wav")
+                    print(f"            standard_male_zh.wav, standard_female_zh.wav")
+            
+            # METHOD 2: Fallback to pyttsx3 (basic quality, offline)
             try:
                 import pyttsx3
-                output_path = output_dir / "standard_pronunciation.wav"
                 engine = pyttsx3.init()
-                # Set properties for better quality
-                engine.setProperty('rate', 150)  # Speed of speech
+                engine.setProperty('rate', 150)
                 engine.setProperty('volume', 0.9)
-                
-                # Save to file
                 engine.save_to_file(text, str(output_path))
                 engine.runAndWait()
                 
                 if output_path.exists():
+                    print("✅ Generated audio using pyttsx3 (fallback)")
                     return str(output_path)
-            except:
-                pass
-            
-            # Fallback to gTTS (requires internet)
-            try:
-                from gtts import gTTS
-                output_path = output_dir / "standard_pronunciation.mp3"
-                tts = gTTS(text=text, lang='en', slow=False)
-                tts.save(str(output_path))
-                
-                if output_path.exists():
-                    return str(output_path)
-            except:
-                pass
+            except Exception as e:
+                print(f"pyttsx3 failed: {e}")
             
             return None
             
@@ -190,7 +214,7 @@ class AudioProcessor:
         # Fallback to standard TTS if voice cloning not available
         return self.generate_standard_audio(standard_text)
     
-    def analyze_pronunciation(self, user_audio_file, reference_text, language="en"):
+    def analyze_pronunciation(self, user_audio_file, reference_text, language="en", voice_gender="female"):
         """Core pronunciation analysis."""
         if not self.model_loaded:
             raise RuntimeError("Models not loaded")
@@ -203,12 +227,56 @@ class AudioProcessor:
             f.write(user_audio_file.getvalue())
         
         # Detect if Chinese based on reference text
-        import re
         is_chinese = bool(re.search(r'[\u4e00-\u9fff]', reference_text))
         
         # Set language for transcription
         transcription_language = "zh" if is_chinese else language
         
+        # USE CHINESE PIPELINE FOR CHINESE TEXT
+        if is_chinese and self.chinese_pipeline is not None:
+            print("🇨🇳 Using specialized Chinese scoring pipeline...")
+            try:
+                # ========== 关键修复：获取或生成标准音 ==========
+                standard_audio_path = Path("temp_audio") / "standard_pronunciation.wav"
+                ref_audio_path = None
+                
+                # 检查标准音是否已存在且是最新的（可选：检查文件修改时间）
+                if standard_audio_path.exists():
+                    ref_audio_path = str(standard_audio_path)
+                    print(f"✅ 使用已有标准音: {ref_audio_path}")
+                else:
+                    # 自动生成标准音
+                    print(f"📢 自动生成标准音 (语言={transcription_language}, 性别={voice_gender})...")
+                    lang_code = "zh" if is_chinese else "en"
+                    generated_path = self.generate_standard_audio(
+                        reference_text,
+                        language=lang_code,
+                        voice_gender=voice_gender
+                    )
+                    if generated_path and Path(generated_path).exists():
+                        ref_audio_path = generated_path
+                        print(f"✅ 标准音生成成功: {ref_audio_path}")
+                    else:
+                        print(f"⚠️ 标准音生成失败，将使用模式分析评分（准确度降低）")
+                
+                # ========== 调用中文 Pipeline，传入标准音路径 ==========
+                chinese_result = self.chinese_pipeline.score_pronunciation(
+                    audio_path=str(temp_audio_path),
+                    reference_text=reference_text,
+                    reference_audio_path=ref_audio_path  # 关键：传入标准音！
+                )
+                
+                # Convert Chinese pipeline result to standard format
+                result = self._convert_chinese_result(chinese_result, temp_audio_path)
+                return result
+                
+            except Exception as e:
+                warnings.warn(f"Chinese pipeline failed, falling back: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fall through to standard pipeline
+        
+        # STANDARD PIPELINE (for English or fallback)
         # Transcribe user audio
         transcription = self.transcriber.transcribe(
             str(temp_audio_path),
@@ -225,7 +293,7 @@ class AudioProcessor:
             reference_text=reference_text,
             transcribed_text=transcription["text"],
             word_timestamps=transcription["words"],
-            reference_audio_path=None,  # Could add reference audio
+            reference_audio_path=None,
             language=transcription_language
         )
         
@@ -236,18 +304,80 @@ class AudioProcessor:
         result['alignment_type'] = alignment_type
         
         return result
+    
+    def _convert_chinese_result(self, chinese_result: dict, audio_path: Path) -> dict:
+        """Convert Chinese pipeline result to standard format for UI."""
+        # Extract character scores and convert to word scores
+        char_scores = chinese_result.get('character_scores', [])
+        
+        word_scores = []
+        for char_data in char_scores:
+            word_scores.append({
+                'word': char_data.get('char', ''),
+                'score': char_data.get('final_score', 70),
+                'start': char_data.get('start', 0),
+                'end': char_data.get('end', 0)
+            })
+        
+        # Create word timestamps for playback
+        word_timestamps = []
+        for char_data in char_scores:
+            word_timestamps.append({
+                'word': char_data.get('char', ''),
+                'start': char_data.get('start', 0),
+                'end': char_data.get('end', 0),
+                'probability': char_data.get('score', 1.0)
+            })
+        
+        # Extract overall metrics
+        overall_metrics = chinese_result.get('overall_metrics', {})
+        
+        # Map Chinese scores to standard format
+        total_score = overall_metrics.get('overall_score', 70)
+        accuracy = overall_metrics.get('avg_acoustic_score', 70)
+        prosody = overall_metrics.get('avg_tone_score', 70)  # 声调 -> 韵律
+        fluency = overall_metrics.get('avg_pause_score', 70)  # 流畅度
+        
+        # Generate issues from feedback
+        issues = chinese_result.get('feedback', [])
+        
+        # Create text comparison
+        reference_chars = [c.get('char', '') for c in char_scores]
+        reference = ''.join(reference_chars)
+        
+        return {
+            'total_score': total_score,
+            'accuracy': accuracy,
+            'fluency': fluency,
+            'prosody': prosody,
+            'word_scores': word_scores,
+            'word_timestamps': word_timestamps,
+            'issues': issues,
+            'text_comparison': {
+                'reference': reference,
+                'hypothesis': reference,
+                'similarity': 1.0 if total_score >= 80 else 0.8,
+                'wer': 0.0,
+                'missing_words': [],
+                'extra_words': []
+            },
+            'user_audio_path': str(audio_path),
+            'phonemes': [],
+            'alignment_type': 'whisperx_chinese',
+            'detailed_scores': {
+                'acoustic': overall_metrics.get('avg_acoustic_score', 70),
+                'tone': overall_metrics.get('avg_tone_score', 70),
+                'duration': overall_metrics.get('avg_duration_score', 70),
+                'pause': overall_metrics.get('avg_pause_score', 70)
+            }
+        }
 
 
-# ===== CRITICAL FIX: Cache the AudioProcessor =====
 @st.cache_resource
 def load_audio_processor():
-    """Load and cache the audio processor with all models.
-    
-    This decorator ensures models are only loaded once and reused across
-    Streamlit reruns, preventing CUDA memory conflicts.
-    """
+    """Load and cache the audio processor with all models."""
     print("=" * 60)
-    print("Initializing AudioProcessor (this should only happen once)...")
+    print("Initializing AudioProcessor...")
     print("=" * 60)
     
     processor = AudioProcessor()
@@ -269,26 +399,21 @@ def load_practice_sentences():
             return json.load(f)
     except FileNotFoundError:
         warnings.warn(f"Sentences file not found: {sentences_file}")
-        # Return default English sentences as fallback
         return {
             "English": {
                 "Hello World": {
                     "text": "Hello world, this is a test.",
                     "phonetics": "/həˈloʊ wɜːrld ðɪs ɪz ə tɛst/",
                     "level": 1
-                },
-                "Weather Talk": {
-                    "text": "The weather is beautiful today.",
-                    "phonetics": "/ðə ˈwɛðər ɪz ˈbjutəfəl təˈdeɪ/",
-                    "level": 2
-                },
-                "Technology": {
-                    "text": "Artificial intelligence is transforming the world.",
-                    "phonetics": "/ˌɑrtəˈfɪʃəl ɪnˈtɛlɪdʒəns ɪz trænsˈfɔrmɪŋ ðə wɜrld/",
-                    "level": 3
                 }
             },
-            "Chinese": {}
+            "Chinese": {
+                "问候": {
+                    "text": "你好",
+                    "phonetics": "/ni3 hao3/",
+                    "level": 1
+                }
+            }
         }
     except Exception as e:
         warnings.warn(f"Failed to load sentences: {e}")
@@ -307,6 +432,17 @@ with st.sidebar:
     st.header("⚙️ Settings")
     language = st.selectbox("Target Language", ["English", "Chinese"])
     difficulty = st.slider("Difficulty Level", 1, 5, 2)
+    
+    st.markdown("### 🎙️ Standard Voice")
+    voice_gender = st.radio(
+        "Reference Voice", 
+        options=["female", "male"], 
+        index=0,
+        horizontal=True,
+        key="voice_gender_selector"
+    )
+    st.session_state.voice_gender = voice_gender
+    st.caption(f"✓ Using {voice_gender} voice")
     
     st.divider()
     st.markdown("### 🤖 System Status")
@@ -332,6 +468,16 @@ with st.sidebar:
             st.caption("Install for better accuracy")
         
         st.markdown("- ✅ Pronunciation Scorer")
+        
+        # Show Chinese pipeline status
+        if CHINESE_PIPELINE_AVAILABLE and processor.chinese_pipeline:
+            st.markdown("- ✅ Chinese Scoring Pipeline")
+            st.markdown("  - 声调评分 (Tone scoring)")
+            st.markdown("  - 韵母评分 (Final scoring)")
+            st.markdown("  - 流畅度评分 (Fluency)")
+        elif language == "Chinese":
+            st.markdown("- ⚠️ Chinese Pipeline (basic mode)")
+            st.caption("Install transformers for advanced scoring")
         
         if processor.voice_cloner and processor.voice_cloner.is_available():
             st.markdown("- ✅ Voice Cloner")
@@ -365,10 +511,7 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("📝 Challenge Card")
     
-    # Load practice sentences from JSON
     all_sentences = load_practice_sentences()
-    
-    # Filter by selected language
     challenges = all_sentences.get(language, {})
     
     if not challenges:
@@ -381,10 +524,7 @@ with col1:
             }
         }
     
-    selected_challenge = st.selectbox(
-        "Choose Challenge",
-        list(challenges.keys())
-    )
+    selected_challenge = st.selectbox("Choose Challenge", list(challenges.keys()))
     
     challenge = challenges[selected_challenge]
     target_text = challenge["text"]
@@ -394,19 +534,32 @@ with col1:
     st.code(phonetics, language="text")
     
     st.markdown("#### 🔊 Standard Audio")
+    st.caption(f"🔍 Current settings - Language: {language}, Gender: {voice_gender}")
+    
     if st.button("▶️ Play Standard (Native)"):
         if "processor" in st.session_state:
             with st.spinner("Generating standard pronunciation..."):
-                audio_path = st.session_state.processor.generate_standard_audio(target_text)
+                lang_code = "zh" if language == "Chinese" else "en"
+                
+                debug_msg = f"📋 Generating: voice_gender={voice_gender}, lang_code={lang_code}"
+                st.info(debug_msg)
+                print(debug_msg)
+                
+                audio_path = st.session_state.processor.generate_standard_audio(
+                    target_text, 
+                    language=lang_code,
+                    voice_gender=voice_gender
+                )
+                
+                expected_ref = f"references/standard_{voice_gender}_{lang_code}.wav"
+                st.caption(f"🎯 Expected reference: {expected_ref}")
                 
                 if audio_path and Path(audio_path).exists():
-                    st.success("✅ Audio generated!")
+                    st.success(f"✅ Audio generated ({voice_gender} {lang_code} voice)!")
                     st.audio(audio_path)
                 else:
-                    st.warning("⚠️ TTS not available. Please install pyttsx3 or gTTS:")
-                    st.code("pip install pyttsx3 gTTS", language="bash")
-                    st.info("📝 Standard pronunciation text:")
-                    st.markdown(f"**{target_text}**")
+                    st.warning("⚠️ IndexTTS2 not available or reference missing")
+                    st.error(f"❌ Could not find: {expected_ref}")
         else:
             st.error("Models not loaded yet!")
     
@@ -428,40 +581,34 @@ with col1:
                     st.audio(cloned_path)
                 else:
                     st.warning("⚠️ Voice cloning not available.")
-                    st.info("📌 Using standard TTS as fallback. Install IndexTTS2 for true voice cloning.")
         else:
             st.error("⚠️ Please record or upload audio first!")
 
 with col2:
     st.subheader("🎤 Practice Area")
     
-    # Recording section
     st.markdown("#### Record Your Pronunciation")
     
     audio_file = None
     
-    # Try to use streamlit-audiorec if available
     if AUDIOREC_AVAILABLE:
         wav_audio_data = st_audiorec()
         
         if wav_audio_data is not None:
             st.success("✅ Recording captured!")
             
-            # Save to session state
             temp_path = Path("temp_audio") / "recorded.wav"
             temp_path.parent.mkdir(exist_ok=True)
             temp_path.write_bytes(wav_audio_data)
             
             st.session_state.last_audio_path = str(temp_path)
             
-            # Create a file-like object for processing
             import io
             audio_file = io.BytesIO(wav_audio_data)
             audio_file.name = "recording.wav"
     else:
         st.info("💡 Tip: Install streamlit-audiorec for one-click recording")
     
-    # File upload as alternative/backup
     st.markdown("#### Or Upload Audio File")
     uploaded_file = st.file_uploader(
         "Upload Recording (.wav, .mp3)",
@@ -473,48 +620,46 @@ with col2:
         audio_file = uploaded_file
         st.success("✅ Audio uploaded successfully!")
         
-        # Save for voice cloning
         temp_path = Path("temp_audio") / uploaded_file.name
         temp_path.parent.mkdir(exist_ok=True)
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.getvalue())
         st.session_state.last_audio_path = str(temp_path)
         
-        # Show audio player
         st.audio(uploaded_file)
     
-    # Analysis button
     if audio_file is not None:
         if st.button("🔍 Analyze Pronunciation", type="primary"):
             if "processor" not in st.session_state or not st.session_state.processor.model_loaded:
-                st.error("❌ Models not loaded. Please check sidebar for status.")
+                st.error("❌ Models not loaded. Please check sidebar.")
             else:
-                with st.spinner("🔬 Analyzing phonemes, pitch, and rhythm..."):
+                with st.spinner("🔬 Analyzing pronunciation..."):
                     try:
+                        # 获取 voice_gender 参数
+                        voice_gender = st.session_state.get('voice_gender', 'female')
+                        
                         result = st.session_state.processor.analyze_pronunciation(
                             audio_file,
                             target_text,
-                            language=language.lower()[:2]  # 'en' or 'zh'
+                            language=language.lower()[:2],
+                            voice_gender=voice_gender  # 传入性别参数！
                         )
                         
-                        # Store result in session state
                         st.session_state.last_result = result
                         
                     except Exception as e:
                         st.error(f"❌ Analysis failed: {e}")
-                        st.info("Please check that audio file is valid and models are loaded.")
                         import traceback
                         with st.expander("Error Details"):
                             st.code(traceback.format_exc())
 
-# Display results if available
+# Display results
 if "last_result" in st.session_state:
     result = st.session_state.last_result
     
     st.divider()
     st.markdown("## 📊 Analysis Report")
     
-    # Metrics row
     m1, m2, m3, m4 = st.columns(4)
     
     with m1:
@@ -533,45 +678,38 @@ if "last_result" in st.session_state:
     # Word-level feedback
     st.markdown("### 📖 Word-by-Word Feedback")
     
-    # Show alignment type
     alignment_type = result.get('alignment_type', 'whisper')
-    if alignment_type == 'whisperx':
-        st.caption("✨ Using WhisperX enhanced alignment for better accuracy")
+    if alignment_type == 'whisperx_chinese':
+        st.caption("✨ Using Chinese specialized scoring pipeline")
+    elif alignment_type == 'whisperx':
+        st.caption("✨ Using WhisperX enhanced alignment")
     else:
-        st.caption("💡 Tip: Install WhisperX for improved timestamp accuracy")
+        st.caption("💡 Tip: Install WhisperX for improved accuracy")
     
-    st.caption("Click on any word to hear your pronunciation of that word")
+    st.caption("Click on any word to hear your pronunciation")
     
-    # Get word timestamps if available
     word_timestamps = result.get('word_timestamps', [])
     user_audio_path = result.get('user_audio_path', None)
-    
-    # Display words using JavaScript and HTML5 Audio API
     word_scores = result['word_scores']
     
     if user_audio_path and Path(user_audio_path).exists():
-        # Read audio file and convert to base64
         with open(user_audio_path, "rb") as f:
             audio_bytes = f.read()
         audio_base64 = base64.b64encode(audio_bytes).decode()
         
-        # Build HTML for word buttons
         word_html = ""
         for idx, w in enumerate(word_scores):
             word = w['word']
             score = w['score']
             
-            # Find timestamp by matching word text instead of using index
             word_ts = find_word_timestamp(word, word_timestamps)
             
             if word_ts:
                 start_time = word_ts.get('start', 0)
                 end_time = word_ts.get('end', 0)
-                # Validate timestamps are numeric
                 try:
                     start_time = float(start_time)
                     end_time = float(end_time)
-                    # Skip words with invalid timestamps
                     if start_time >= end_time or start_time < 0:
                         start_time = -1
                         end_time = -1
@@ -579,34 +717,28 @@ if "last_result" in st.session_state:
                     start_time = -1
                     end_time = -1
             else:
-                # Mark words without timestamps as disabled
                 start_time = -1
                 end_time = -1
             
-            # Color coding based on score (using safe predefined colors)
-            # Validate score is numeric for safe color selection
             try:
                 score_val = float(score)
                 if score_val >= 90:
-                    color = "#28a745"  # green
+                    color = "#28a745"
                     emoji = "✅"
                 elif score_val >= 75:
-                    color = "#ffc107"  # yellow
+                    color = "#ffc107"
                     emoji = "⚠️"
                 else:
-                    color = "#dc3545"  # red
+                    color = "#dc3545"
                     emoji = "❌"
             except (TypeError, ValueError):
-                # Fallback color for invalid scores
-                color = "#6c757d"  # gray
+                color = "#6c757d"
                 emoji = "❓"
             
-            # Escape word and emoji to prevent XSS
             word_escaped = html.escape(str(word))
             emoji_escaped = html.escape(str(emoji))
             score_escaped = html.escape(str(score))
             
-            # Only create playable button if timestamps are valid
             if start_time >= 0 and end_time > start_time:
                 word_html += f'''
                 <button onclick="playWord({start_time}, {end_time})" 
@@ -617,7 +749,6 @@ if "last_result" in st.session_state:
                 </button>
                 '''
             else:
-                # Disabled button for words without timestamps
                 word_html += f'''
                 <button disabled 
                         style="margin:4px; padding:8px 12px; border-radius:8px; 
@@ -627,51 +758,38 @@ if "last_result" in st.session_state:
                 </button>
                 '''
         
-        # Render HTML component with audio player and JavaScript
         st.components.v1.html(f'''
         <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
         <script>
             let animationFrameId = null;
-            const PLAYBACK_END_OFFSET = {PLAYBACK_END_OFFSET};  // Offset to prevent playing next word
+            const PLAYBACK_END_OFFSET = {PLAYBACK_END_OFFSET};
             
             function playWord(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
-                
-                // Stop any currently playing audio and cancel animation frame
                 audio.pause();
                 if (animationFrameId) {{
                     cancelAnimationFrame(animationFrameId);
                     animationFrameId = null;
                 }}
                 
-                // Function to check playback position
                 function checkTime() {{
                     if (audio.currentTime >= endTime - PLAYBACK_END_OFFSET) {{
-                        // Stop slightly before end to avoid playing next word
                         audio.pause();
                         animationFrameId = null;
                     }} else if (!audio.paused) {{
-                        // Continue checking
                         animationFrameId = requestAnimationFrame(checkTime);
                     }}
                 }}
                 
-                // Wait for audio to be ready before setting currentTime
                 function attemptPlayback() {{
                     if (audio.readyState >= 2) {{
-                        // Audio has loaded enough data
                         audio.currentTime = startTime;
-                        
-                        // Play with error handling
                         audio.play().then(function() {{
-                            // Start checking playback position
                             animationFrameId = requestAnimationFrame(checkTime);
                         }}).catch(function(error) {{
                             console.error('Playback failed:', error);
-                            // Audio playback might fail if user hasn't interacted with the page yet
                         }});
                     }} else {{
-                        // Wait for audio to load
                         audio.addEventListener('loadeddata', function onLoaded() {{
                             audio.removeEventListener('loadeddata', onLoaded);
                             audio.currentTime = startTime;
@@ -727,6 +845,21 @@ if "last_result" in st.session_state:
         if tc.get('extra_words'):
             st.info(f"Extra words: {', '.join(tc['extra_words'])}")
         
+        # Display Chinese-specific scores if available
+        if 'detailed_scores' in result:
+            st.markdown("#### Chinese Pronunciation Details")
+            detailed = result['detailed_scores']
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("🎤 声母韵母", f"{detailed.get('acoustic', 0)}/100")
+            with col2:
+                st.metric("🎵 声调", f"{detailed.get('tone', 0)}/100")
+            with col3:
+                st.metric("⏱️ 时长", f"{detailed.get('duration', 0)}/100")
+            with col4:
+                st.metric("🌊 流畅度", f"{detailed.get('pause', 0)}/100")
+        
         # Display phoneme information if available (WhisperX for English)
         phonemes = result.get('phonemes', [])
         if phonemes:
@@ -734,7 +867,6 @@ if "last_result" in st.session_state:
             st.caption("✨ Enhanced phoneme-level timestamps from WhisperX")
             st.markdown(f"**Total phonemes detected:** {len(phonemes)}")
             
-            # Show sample of phonemes
             if len(phonemes) > 0:
                 sample_size = min(10, len(phonemes))
                 st.markdown(f"**Sample phonemes (first {sample_size}):**")
@@ -754,6 +886,6 @@ st.markdown("""
 <div style='text-align: center; color: #666; padding: 20px;'>
     <p>🤖 <strong>Fully Offline AI Pronunciation Coach</strong></p>
     <p>All processing runs locally on your machine • Privacy-first design</p>
-    <p><small>Powered by Whisper, IndexTTS2, librosa, and DTW</small></p>
+    <p><small>Powered by Whisper, IndexTTS2, WavLM, and Chinese Pipeline</small></p>
 </div>
 """, unsafe_allow_html=True)
