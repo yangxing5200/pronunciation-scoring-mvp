@@ -28,6 +28,14 @@ class AcousticScorer:
     # WavLM-base+ 的嵌入维度
     EMBEDDING_DIM = 768
     
+    # 静音检测阈值
+    SILENCE_RMS_THRESHOLD = 0.005  # RMS 低于此值判定为静音
+    LOW_ENERGY_RMS_THRESHOLD = 0.01  # RMS 低于此值判定为低能量
+    
+    # 静音惩罚分数
+    SILENCE_SCORE = 10  # 完全静音给 10 分
+    LOW_ENERGY_SCORE = 30  # 低能量给 30 分
+    
     def __init__(self, device: Optional[str] = None):
         """
         初始化声学评分器。
@@ -92,6 +100,27 @@ class AcousticScorer:
             padding_length = self.MIN_AUDIO_LENGTH - len(audio_segment)
             return np.pad(audio_segment, (0, padding_length), mode='constant')
         return audio_segment
+    
+    def _detect_silence(self, audio_segment: np.ndarray) -> tuple:
+        """
+        检测音频片段是否为静音或低能量。
+        
+        Args:
+            audio_segment: 音频采样点
+        
+        Returns:
+            (is_silence, is_low_energy, rms_value)
+        """
+        if len(audio_segment) == 0:
+            return True, True, 0.0
+        
+        # 计算 RMS 能量
+        rms = np.sqrt(np.mean(audio_segment ** 2))
+        
+        is_silence = rms < self.SILENCE_RMS_THRESHOLD
+        is_low_energy = rms < self.LOW_ENERGY_RMS_THRESHOLD
+        
+        return is_silence, is_low_energy, rms
     
     def extract_embedding(self, audio_segment: np.ndarray) -> np.ndarray:
         """
@@ -216,7 +245,36 @@ class AcousticScorer:
         for i, item in enumerate(sliced_results):
             audio_segment = item.get("audio_segment", np.array([]))
             audio_length = len(audio_segment)
+            char_name = item.get('char', f'[{i}]')
             
+            # ========== 关键：静音检测 ==========
+            is_silence, is_low_energy, rms = self._detect_silence(audio_segment)
+            
+            if is_silence:
+                # 完全静音：给极低分
+                acoustic_score = self.SILENCE_SCORE / 100.0
+                print(f"   {char_name}: ⚠️ 静音检测 (RMS={rms:.6f}) → 声学得分={acoustic_score:.4f}")
+                
+                result = item.copy()
+                result["acoustic_score"] = float(acoustic_score)
+                result["audio_length"] = audio_length
+                result["is_silence"] = True
+                scored_results.append(result)
+                continue
+            
+            if is_low_energy:
+                # 低能量：给较低分
+                acoustic_score = self.LOW_ENERGY_SCORE / 100.0
+                print(f"   {char_name}: ⚠️ 低能量 (RMS={rms:.6f}) → 声学得分={acoustic_score:.4f}")
+                
+                result = item.copy()
+                result["acoustic_score"] = float(acoustic_score)
+                result["audio_length"] = audio_length
+                result["is_low_energy"] = True
+                scored_results.append(result)
+                continue
+            
+            # ========== 正常评分流程 ==========
             # 提取用户嵌入
             user_embedding = self.extract_embedding(audio_segment)
             
@@ -227,7 +285,6 @@ class AcousticScorer:
                 similarity = self.cosine_similarity(user_embedding, ref_embedding)
                 
                 # 调试日志
-                char_name = item.get('char', f'[{i}]')
                 print(f"   {char_name}: 余弦相似度={similarity:.4f}", end="")
                 
                 # 相似度映射到评分（提高对好发音的区分度）

@@ -3,6 +3,10 @@ Task 9: Final Scoring
 
 Integrates all sub-scores into a comprehensive final score.
 Uses weighted formula to calculate overall pronunciation quality.
+
+增强版：
+- 检测静音/低能量标志，给予相应惩罚
+- 更合理的最终得分计算
 """
 
 from typing import List, Dict
@@ -19,6 +23,10 @@ class FinalScorer:
     - Duration scoring (15%)
     - Pause/fluency scoring (10%)
     """
+    
+    # 静音/低能量的固定得分
+    SILENCE_SCORE = 10  # 完全静音
+    LOW_ENERGY_SCORE = 25  # 低能量
     
     def __init__(
         self,
@@ -67,9 +75,36 @@ class FinalScorer:
         final_results = []
         
         for item in scored_results:
-            # Extract sub-scores (default to 0.7 if missing)
-            acoustic_score = item.get("acoustic_score", 0.7)
-            tone_score = item.get("tone_score", 0.7)
+            char_name = item.get('char', '?')
+            
+            # ========== 关键：检测静音/低能量标志 ==========
+            is_silence = item.get("is_silence", False)
+            is_low_energy = item.get("is_low_energy", False)
+            
+            if is_silence:
+                # 完全静音：直接给极低分
+                final_score_100 = self.SILENCE_SCORE
+                print(f"   {char_name}: ❌ 静音 → 最终得分={final_score_100}")
+                
+                result = item.copy()
+                result["final_score"] = final_score_100
+                final_results.append(result)
+                continue
+            
+            if is_low_energy:
+                # 低能量：给较低分
+                final_score_100 = self.LOW_ENERGY_SCORE
+                print(f"   {char_name}: ⚠️ 低能量 → 最终得分={final_score_100}")
+                
+                result = item.copy()
+                result["final_score"] = final_score_100
+                final_results.append(result)
+                continue
+            
+            # ========== 正常加权计算 ==========
+            # Extract sub-scores (default to 0.5 if missing, not 0.7)
+            acoustic_score = item.get("acoustic_score", 0.5)
+            tone_score = item.get("tone_score", 0.5)
             duration_score = item.get("duration_score", 0.7)
             pause_score = item.get("pause_score", 0.7)
             
@@ -121,6 +156,10 @@ class FinalScorer:
         duration_scores = [item.get("duration_score", 0) * 100 for item in final_results]
         pause_scores = [item.get("pause_score", 0) * 100 for item in final_results]
         
+        # 统计静音/低能量字符
+        num_silence = sum(1 for item in final_results if item.get("is_silence", False))
+        num_low_energy = sum(1 for item in final_results if item.get("is_low_energy", False))
+        
         overall_score = int(np.mean(final_scores))
         
         return {
@@ -131,7 +170,9 @@ class FinalScorer:
             "avg_pause_score": int(np.mean(pause_scores)),
             "num_characters": len(final_results),
             "min_score": int(np.min(final_scores)),
-            "max_score": int(np.max(final_scores))
+            "max_score": int(np.max(final_scores)),
+            "num_silence": num_silence,
+            "num_low_energy": num_low_energy
         }
     
     def generate_feedback(
@@ -153,6 +194,18 @@ class FinalScorer:
         
         overall_score = overall_metrics["overall_score"]
         
+        # Check for silence issues first
+        num_silence = overall_metrics.get("num_silence", 0)
+        num_low_energy = overall_metrics.get("num_low_energy", 0)
+        
+        if num_silence > 0:
+            silence_chars = [item["char"] for item in final_results if item.get("is_silence", False)]
+            feedback.append(f"⚠️ 检测到 {num_silence} 个字未发音：{'、'.join(silence_chars[:5])}")
+        
+        if num_low_energy > 0:
+            low_energy_chars = [item["char"] for item in final_results if item.get("is_low_energy", False)]
+            feedback.append(f"⚠️ 检测到 {num_low_energy} 个字发音过轻：{'、'.join(low_energy_chars[:5])}")
+        
         # Overall performance feedback
         if overall_score >= 90:
             feedback.append("优秀！发音非常标准。(Excellent! Very standard pronunciation.)")
@@ -163,10 +216,12 @@ class FinalScorer:
         else:
             feedback.append("需要改进。建议多听多练。(Needs improvement. Listen and practice more.)")
         
-        # Find problematic characters
+        # Find problematic characters (excluding silence/low_energy which we already reported)
         low_score_chars = [
             item for item in final_results
-            if item.get("final_score", 0) < 70
+            if item.get("final_score", 0) < 70 
+            and not item.get("is_silence", False)
+            and not item.get("is_low_energy", False)
         ]
         
         if low_score_chars:

@@ -36,6 +36,14 @@ class ToneScorer:
     F0_MIN = 75    # 最低基频 (Hz)
     F0_MAX = 500   # 最高基频 (Hz)
     
+    # 静音检测阈值
+    SILENCE_RMS_THRESHOLD = 0.005  # RMS 低于此值判定为静音
+    LOW_ENERGY_RMS_THRESHOLD = 0.01  # RMS 低于此值判定为低能量
+    
+    # 静音惩罚分数
+    SILENCE_SCORE = 10  # 完全静音给 10 分
+    LOW_ENERGY_SCORE = 30  # 低能量给 30 分
+    
     # 声调模式特征阈值
     TONE_THRESHOLDS = {
         'flat_variance': 0.15,      # 一声：方差小于此值认为是平调
@@ -72,6 +80,27 @@ class ToneScorer:
             print("✅ 声调评分器初始化完成（F0 曲线分析模式）")
         else:
             raise RuntimeError("librosa 不可用")
+    
+    def _detect_silence(self, audio_segment: np.ndarray) -> tuple:
+        """
+        检测音频片段是否为静音或低能量。
+        
+        Args:
+            audio_segment: 音频采样点
+        
+        Returns:
+            (is_silence, is_low_energy, rms_value)
+        """
+        if len(audio_segment) == 0:
+            return True, True, 0.0
+        
+        # 计算 RMS 能量
+        rms = np.sqrt(np.mean(audio_segment ** 2))
+        
+        is_silence = rms < self.SILENCE_RMS_THRESHOLD
+        is_low_energy = rms < self.LOW_ENERGY_RMS_THRESHOLD
+        
+        return is_silence, is_low_energy, rms
     
     def extract_f0(
         self, 
@@ -385,10 +414,43 @@ class ToneScorer:
         for i, item in enumerate(sliced_results):
             audio_segment = item.get('audio_segment', np.array([]))
             pinyin = item.get('pinyin', '')
+            char_name = item.get('char', f'[{i}]')
             
             # 获取期望声调
             expected_tone = self._extract_tone_from_pinyin(pinyin)
             
+            # ========== 关键：静音检测 ==========
+            is_silence, is_low_energy, rms = self._detect_silence(audio_segment)
+            
+            if is_silence:
+                # 完全静音：给极低分
+                tone_score = self.SILENCE_SCORE / 100.0
+                print(f"   {char_name}: ⚠️ 静音 (RMS={rms:.6f}) → 声调得分={tone_score:.4f}")
+                
+                result = item.copy()
+                result['tone_score'] = float(tone_score)
+                result['predicted_tone'] = 0
+                result['expected_tone'] = expected_tone
+                result['tone_confidence'] = 0.0
+                result['is_silence'] = True
+                scored_results.append(result)
+                continue
+            
+            if is_low_energy:
+                # 低能量：给较低分
+                tone_score = self.LOW_ENERGY_SCORE / 100.0
+                print(f"   {char_name}: ⚠️ 低能量 (RMS={rms:.6f}) → 声调得分={tone_score:.4f}")
+                
+                result = item.copy()
+                result['tone_score'] = float(tone_score)
+                result['predicted_tone'] = 0
+                result['expected_tone'] = expected_tone
+                result['tone_confidence'] = 0.0
+                result['is_low_energy'] = True
+                scored_results.append(result)
+                continue
+            
+            # ========== 正常评分流程 ==========
             # 提取用户 F0
             user_f0, voiced = self.extract_f0(audio_segment)
             user_f0_norm = self.normalize_f0(user_f0)
@@ -414,7 +476,6 @@ class ToneScorer:
                     tone_score = 0.7 * f0_similarity + 0.3 * tone_match_score
                     
                     # 调试日志
-                    char_name = item.get('char', f'[{i}]')
                     print(f"   {char_name}: F0相似度={f0_similarity:.4f}, 预测声调={predicted_tone}, 期望={expected_tone} → 声调得分={tone_score:.4f}")
                 else:
                     # 参考音频无效，使用模式分析

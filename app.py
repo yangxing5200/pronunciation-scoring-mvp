@@ -90,6 +90,9 @@ class AudioProcessor:
             st.error("Core modules not available. Please install dependencies.")
             return
         
+        # 启动时清理超过 7 天的旧缓存
+        self._cleanup_old_cache(max_age_days=7)
+        
         try:
             # Check if WhisperX is available
             use_whisperx = False
@@ -139,14 +142,71 @@ class AudioProcessor:
             st.info("Please run: python scripts/download_models.py")
             raise
     
-    def generate_standard_audio(self, text, language="en", voice_gender="female"):
-        """Generate standard pronunciation audio using IndexTTS2 with fixed reference speakers."""
+    def _get_text_hash(self, text: str) -> str:
+        """Generate a short hash for text to use in filename."""
+        import hashlib
+        # 使用 MD5 的前 8 位作为哈希
+        return hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+    
+    def _get_standard_audio_path(self, text: str, language: str, voice_gender: str) -> Path:
+        """Get the cached standard audio path for given text/language/gender."""
         output_dir = Path("temp_audio")
         output_dir.mkdir(exist_ok=True)
-        output_path = output_dir / "standard_pronunciation.wav"
         
+        # Determine language code
+        is_chinese = language.startswith('zh') or bool(re.search(r'[\u4e00-\u9fff]', text))
+        lang_code = "zh" if is_chinese else "en"
+        
+        # Generate filename with hash
+        text_hash = self._get_text_hash(text)
+        filename = f"standard_{voice_gender}_{lang_code}_{text_hash}.wav"
+        
+        return output_dir / filename
+    
+    def _cleanup_old_cache(self, max_age_days: int = 7):
+        """Clean up old cached standard audio files."""
+        import time
+        output_dir = Path("temp_audio")
+        if not output_dir.exists():
+            return
+        
+        current_time = time.time()
+        max_age_seconds = max_age_days * 24 * 60 * 60
+        
+        for file in output_dir.glob("standard_*.wav"):
+            try:
+                file_age = current_time - file.stat().st_mtime
+                if file_age > max_age_seconds:
+                    file.unlink()
+                    print(f"🗑️ Cleaned old cache: {file.name}")
+            except Exception:
+                pass
+    
+    def generate_standard_audio(self, text, language="en", voice_gender="female", use_cache=True):
+        """Generate standard pronunciation audio using IndexTTS2 with fixed reference speakers.
+        
+        Args:
+            text: Text to synthesize
+            language: Language code ('en' or 'zh')
+            voice_gender: Voice gender ('female' or 'male')
+            use_cache: If True, use cached audio if available
+        
+        Returns:
+            Path to generated audio file, or None if failed
+        """
         # Determine if Chinese
         is_chinese = language.startswith('zh') or bool(re.search(r'[\u4e00-\u9fff]', text))
+        lang_code = "zh" if is_chinese else "en"
+        
+        # Get cached path
+        output_path = self._get_standard_audio_path(text, language, voice_gender)
+        
+        # Check cache
+        if use_cache and output_path.exists():
+            print(f"✅ 使用缓存的标准音: {output_path.name} ({voice_gender} {lang_code})")
+            return str(output_path)
+        
+        print(f"📢 生成新标准音: {output_path.name} ({voice_gender} {lang_code})")
         
         # Select reference audio based on language and gender
         ref_dir = Path("references")
@@ -236,26 +296,34 @@ class AudioProcessor:
         if is_chinese and self.chinese_pipeline is not None:
             print("🇨🇳 Using specialized Chinese scoring pipeline...")
             try:
-                # ========== 关键修复：获取或生成标准音 ==========
-                standard_audio_path = Path("temp_audio") / "standard_pronunciation.wav"
+                # ========== 关键：根据语言和性别获取/生成标准音 ==========
+                lang_code = "zh" if is_chinese else "en"
+                
+                # 获取缓存路径（包含语言、性别、文本哈希）
+                standard_audio_path = self._get_standard_audio_path(
+                    reference_text, 
+                    lang_code, 
+                    voice_gender
+                )
+                
                 ref_audio_path = None
                 
-                # 检查标准音是否已存在且是最新的（可选：检查文件修改时间）
+                # 检查缓存是否存在
                 if standard_audio_path.exists():
                     ref_audio_path = str(standard_audio_path)
-                    print(f"✅ 使用已有标准音: {ref_audio_path}")
+                    print(f"✅ 使用缓存标准音: {standard_audio_path.name}")
                 else:
-                    # 自动生成标准音
-                    print(f"📢 自动生成标准音 (语言={transcription_language}, 性别={voice_gender})...")
-                    lang_code = "zh" if is_chinese else "en"
+                    # 生成新的标准音
+                    print(f"📢 生成标准音 (语言={lang_code}, 性别={voice_gender})...")
                     generated_path = self.generate_standard_audio(
                         reference_text,
                         language=lang_code,
-                        voice_gender=voice_gender
+                        voice_gender=voice_gender,
+                        use_cache=False  # 已经检查过缓存了
                     )
                     if generated_path and Path(generated_path).exists():
                         ref_audio_path = generated_path
-                        print(f"✅ 标准音生成成功: {ref_audio_path}")
+                        print(f"✅ 标准音生成成功: {Path(generated_path).name}")
                     else:
                         print(f"⚠️ 标准音生成失败，将使用模式分析评分（准确度降低）")
                 
@@ -263,7 +331,7 @@ class AudioProcessor:
                 chinese_result = self.chinese_pipeline.score_pronunciation(
                     audio_path=str(temp_audio_path),
                     reference_text=reference_text,
-                    reference_audio_path=ref_audio_path  # 关键：传入标准音！
+                    reference_audio_path=ref_audio_path  # 传入正确的标准音！
                 )
                 
                 # Convert Chinese pipeline result to standard format
@@ -538,12 +606,14 @@ with col1:
     
     if st.button("▶️ Play Standard (Native)"):
         if "processor" in st.session_state:
-            with st.spinner("Generating standard pronunciation..."):
+            with st.spinner("Loading standard pronunciation..."):
                 lang_code = "zh" if language == "Chinese" else "en"
                 
-                debug_msg = f"📋 Generating: voice_gender={voice_gender}, lang_code={lang_code}"
-                st.info(debug_msg)
-                print(debug_msg)
+                # 检查是否有缓存
+                cached_path = st.session_state.processor._get_standard_audio_path(
+                    target_text, lang_code, voice_gender
+                )
+                is_cached = cached_path.exists()
                 
                 audio_path = st.session_state.processor.generate_standard_audio(
                     target_text, 
@@ -551,13 +621,14 @@ with col1:
                     voice_gender=voice_gender
                 )
                 
-                expected_ref = f"references/standard_{voice_gender}_{lang_code}.wav"
-                st.caption(f"🎯 Expected reference: {expected_ref}")
-                
                 if audio_path and Path(audio_path).exists():
-                    st.success(f"✅ Audio generated ({voice_gender} {lang_code} voice)!")
+                    if is_cached:
+                        st.success(f"✅ 使用缓存 ({voice_gender} {lang_code})")
+                    else:
+                        st.success(f"✅ 已生成标准音 ({voice_gender} {lang_code})")
                     st.audio(audio_path)
                 else:
+                    expected_ref = f"references/standard_{voice_gender}_{lang_code}.wav"
                     st.warning("⚠️ IndexTTS2 not available or reference missing")
                     st.error(f"❌ Could not find: {expected_ref}")
         else:
