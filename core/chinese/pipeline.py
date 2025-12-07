@@ -17,7 +17,7 @@ import tempfile
 import os
 
 from .pinyin_mapper import PinyinMapper
-from .audio_aligner import ChineseAudioAligner
+from .audio_aligner_enhanced import ChineseAudioAlignerEnhanced as ChineseAudioAligner
 from .audio_slicer import AudioSlicer
 from .acoustic_scorer import AcousticScorer
 from .tone_scorer import ToneScorer
@@ -265,7 +265,8 @@ class ChineseScoringPipeline:
         if self.audio_aligner.is_available():
             alignment_results = self.audio_aligner.align_audio(
                 audio_path,
-                pinyin_sequence
+                pinyin_sequence,
+                refine_boundaries=True
             )
         else:
             warnings.warn("音频对齐不可用，使用均匀分配")

@@ -374,17 +374,46 @@ class AudioProcessor:
         return result
     
     def _convert_chinese_result(self, chinese_result: dict, audio_path: Path) -> dict:
-        """Convert Chinese pipeline result to standard format for UI."""
+        """Convert Chinese pipeline result to standard format for UI.
+        
+        【增强版】保留详细的错误信息和各维度得分，供前端展示扣分点。
+        """
         # Extract character scores and convert to word scores
         char_scores = chinese_result.get('character_scores', [])
         
         word_scores = []
         for char_data in char_scores:
+            # ========== 关键改动：保留所有详细信息 ==========
             word_scores.append({
                 'word': char_data.get('char', ''),
                 'score': char_data.get('final_score', 70),
                 'start': char_data.get('start', 0),
-                'end': char_data.get('end', 0)
+                'end': char_data.get('end', 0),
+                
+                # 新增：拼音
+                'pinyin': char_data.get('pinyin', ''),
+                
+                # 新增：各维度得分（0-1 范围）
+                'acoustic_score': char_data.get('acoustic_score', 0.7),
+                'tone_score': char_data.get('tone_score', 0.7),
+                'duration_score': char_data.get('duration_score', 0.7),
+                'pause_score': char_data.get('pause_score', 0.7),
+                
+                # 新增：时长信息
+                'duration': char_data.get('duration', 0),
+                'pause_after': char_data.get('pause_after', 0),
+                
+                # 新增：错误信息（来自 ErrorClassifier）
+                'errors': char_data.get('errors', []),
+                'error_probabilities': char_data.get('error_probabilities', {}),
+                
+                # 新增：声调信息
+                'predicted_tone': char_data.get('predicted_tone', 0),
+                'expected_tone': char_data.get('expected_tone', 0),
+                
+                # 新增：特殊标记
+                'is_silence': char_data.get('is_silence', False),
+                'is_low_energy': char_data.get('is_low_energy', False)
             })
         
         # Create word timestamps for playback
@@ -751,17 +780,20 @@ if "last_result" in st.session_state:
     
     alignment_type = result.get('alignment_type', 'whisper')
     if alignment_type == 'whisperx_chinese':
-        st.caption("✨ Using Chinese specialized scoring pipeline")
+        st.caption("✨ Using Chinese specialized scoring pipeline - 点击汉字查看详细扣分")
     elif alignment_type == 'whisperx':
         st.caption("✨ Using WhisperX enhanced alignment")
     else:
         st.caption("💡 Tip: Install WhisperX for improved accuracy")
     
-    st.caption("Click on any word to hear your pronunciation")
+    st.caption("Click on any word to hear your pronunciation and see detailed scores")
     
     word_timestamps = result.get('word_timestamps', [])
     user_audio_path = result.get('user_audio_path', None)
     word_scores = result['word_scores']
+    
+    # 检查是否是中文结果（有详细的错误信息）
+    is_chinese_result = alignment_type == 'whisperx_chinese'
     
     if user_audio_path and Path(user_audio_path).exists():
         with open(user_audio_path, "rb") as f:
@@ -773,7 +805,10 @@ if "last_result" in st.session_state:
             word = w['word']
             score = w['score']
             
-            word_ts = find_word_timestamp(word, word_timestamps)
+            if idx < len(word_timestamps):
+                    word_ts = word_timestamps[idx]
+            else:
+                    word_ts = None
             
             if word_ts:
                 start_time = word_ts.get('start', 0)
@@ -791,51 +826,281 @@ if "last_result" in st.session_state:
                 start_time = -1
                 end_time = -1
             
-            try:
-                score_val = float(score)
-                if score_val >= 90:
-                    color = "#28a745"
-                    emoji = "✅"
-                elif score_val >= 75:
-                    color = "#ffc107"
-                    emoji = "⚠️"
-                else:
-                    color = "#dc3545"
-                    emoji = "❌"
-            except (TypeError, ValueError):
+            # ========== 增强：获取详细信息 ==========
+            is_silence = w.get('is_silence', False)
+            is_low_energy = w.get('is_low_energy', False)
+            
+            # 确定颜色和样式
+            if is_silence:
                 color = "#6c757d"
-                emoji = "❓"
+                emoji = "🔇"
+                border_style = "dashed"
+            elif is_low_energy:
+                color = "#fd7e14"
+                emoji = "🔉"
+                border_style = "dashed"
+            else:
+                try:
+                    score_val = float(score)
+                    if score_val >= 90:
+                        color = "#28a745"
+                        emoji = "✅"
+                    elif score_val >= 75:
+                        color = "#ffc107"
+                        emoji = "⚠️"
+                    else:
+                        color = "#dc3545"
+                        emoji = "❌"
+                except (TypeError, ValueError):
+                    color = "#6c757d"
+                    emoji = "❓"
+                border_style = "solid"
             
             word_escaped = html.escape(str(word))
             emoji_escaped = html.escape(str(emoji))
             score_escaped = html.escape(str(score))
             
+            # ========== 增强：构建详情数据（中文专用）==========
+            if is_chinese_result:
+                detail_data = {
+                    'char': word,
+                    'pinyin': w.get('pinyin', ''),
+                    'final_score': score,
+                    'acoustic_score': round(w.get('acoustic_score', 0.7) * 100, 1),
+                    'tone_score': round(w.get('tone_score', 0.7) * 100, 1),
+                    'duration_score': round(w.get('duration_score', 0.7) * 100, 1),
+                    'pause_score': round(w.get('pause_score', 0.7) * 100, 1),
+                    'predicted_tone': w.get('predicted_tone', 0),
+                    'expected_tone': w.get('expected_tone', 0),
+                    'errors': w.get('errors', []),
+                    'is_silence': is_silence,
+                    'is_low_energy': is_low_energy,
+                    'duration': w.get('duration', 0),
+                    'pause_after': w.get('pause_after', 0)
+                }
+                detail_json = html.escape(json.dumps(detail_data, ensure_ascii=False))
+                onclick_func = f"showCharDetail({idx}, {start_time}, {end_time}, '{detail_json}')"
+            else:
+                onclick_func = f"playWord({start_time}, {end_time})"
+            
             if start_time >= 0 and end_time > start_time:
                 word_html += f'''
-                <button onclick="playWord({start_time}, {end_time})" 
-                        style="margin:4px; padding:8px 12px; border-radius:8px; 
-                               border:2px solid {color}; background:white; 
-                               cursor:pointer; font-size:14px;">
-                    {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
+                <button onclick="{onclick_func}" 
+                        style="margin:4px; padding:10px 14px; border-radius:10px; 
+                               border:2px {border_style} {color}; background:white; 
+                               cursor:pointer; font-size:16px; min-width:50px;
+                               transition: all 0.2s ease;"
+                        onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)';"
+                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
+                    <span style="font-size:18px;">{word_escaped}</span><br>
+                    <small style="color:{color}; font-weight:bold;">{score_escaped}</small>
                 </button>
                 '''
             else:
                 word_html += f'''
                 <button disabled 
-                        style="margin:4px; padding:8px 12px; border-radius:8px; 
-                               border:2px solid {color}; background:#f0f0f0; 
-                               cursor:not-allowed; font-size:14px; opacity:0.6;">
-                    {emoji_escaped} {word_escaped}<br><small>{score_escaped}</small>
+                        style="margin:4px; padding:10px 14px; border-radius:10px; 
+                               border:2px {border_style} {color}; background:#f0f0f0; 
+                               cursor:not-allowed; font-size:16px; min-width:50px; opacity:0.6;">
+                    <span style="font-size:18px;">{word_escaped}</span><br>
+                    <small style="color:{color}; font-weight:bold;">{score_escaped}</small>
                 </button>
                 '''
         
+        # ========== 增强：添加详情面板（中文专用）==========
+        detail_panel_html = ""
+        if is_chinese_result:
+            detail_panel_html = '''
+            <div id="detail-panel" class="detail-panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div>
+                        <span id="detail-char" style="font-size:48px;"></span>
+                        <span id="detail-pinyin" style="font-size:18px; margin-left:8px; opacity:0.8;"></span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:36px; font-weight:bold;" id="detail-score"></div>
+                        <div style="font-size:12px; opacity:0.8;">综合得分</div>
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:16px;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>🎤 声母韵母</span>
+                            <span id="score-acoustic"></span>
+                        </div>
+                        <div class="score-bar"><div id="bar-acoustic" class="score-fill" style="background:#4CAF50;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>🎵 声调</span>
+                            <span id="score-tone"></span>
+                        </div>
+                        <div class="score-bar"><div id="bar-tone" class="score-fill" style="background:#2196F3;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>⏱️ 时长</span>
+                            <span id="score-duration"></span>
+                        </div>
+                        <div class="score-bar"><div id="bar-duration" class="score-fill" style="background:#FF9800;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>🌊 流畅度</span>
+                            <span id="score-pause"></span>
+                        </div>
+                        <div class="score-bar"><div id="bar-pause" class="score-fill" style="background:#9C27B0;"></div></div>
+                    </div>
+                </div>
+                
+                <div id="tone-section" style="margin-bottom:12px; display:none;">
+                    <div style="font-weight:bold; margin-bottom:8px;">🎵 声调分析</div>
+                    <div id="tone-info" style="background:rgba(255,255,255,0.1); padding:8px 12px; border-radius:6px;"></div>
+                </div>
+                
+                <div id="error-section">
+                    <div style="font-weight:bold; margin-bottom:8px;">⚠️ 问题标记</div>
+                    <div id="error-list"></div>
+                </div>
+                
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.2);">
+                    <button onclick="replayChar()" 
+                            style="background:white; color:#667eea; border:none; padding:10px 20px; 
+                                   border-radius:20px; cursor:pointer; font-weight:bold;">
+                        🔊 重新播放
+                    </button>
+                    <button onclick="hideDetail()" 
+                            style="background:transparent; color:white; border:1px solid white; 
+                                   padding:10px 20px; border-radius:20px; cursor:pointer; margin-left:8px;">
+                        关闭
+                    </button>
+                </div>
+            </div>
+            '''
+        
+        # ========== 增强：JavaScript 函数 ==========
+        detail_js = ""
+        if is_chinese_result:
+            detail_js = '''
+            function showCharDetail(idx, start, end, detailJson) {
+                currentStart = start;
+                currentEnd = end;
+                
+                playAudioSegment(start, end);
+                
+                const detail = JSON.parse(detailJson);
+                
+                document.getElementById('detail-char').textContent = detail.char;
+                document.getElementById('detail-pinyin').textContent = detail.pinyin;
+                document.getElementById('detail-score').textContent = detail.final_score;
+                
+                document.getElementById('score-acoustic').textContent = detail.acoustic_score;
+                document.getElementById('score-tone').textContent = detail.tone_score;
+                document.getElementById('score-duration').textContent = detail.duration_score;
+                document.getElementById('score-pause').textContent = detail.pause_score;
+                
+                document.getElementById('bar-acoustic').style.width = detail.acoustic_score + '%';
+                document.getElementById('bar-tone').style.width = detail.tone_score + '%';
+                document.getElementById('bar-duration').style.width = detail.duration_score + '%';
+                document.getElementById('bar-pause').style.width = detail.pause_score + '%';
+                
+                // 声调分析
+                const toneSection = document.getElementById('tone-section');
+                const toneInfo = document.getElementById('tone-info');
+                if (detail.predicted_tone > 0 && detail.expected_tone > 0) {
+                    toneSection.style.display = 'block';
+                    if (detail.predicted_tone === detail.expected_tone) {
+                        toneInfo.innerHTML = '✅ 声调正确：第' + detail.expected_tone + '声';
+                    } else {
+                        toneInfo.innerHTML = '❌ 识别为第' + detail.predicted_tone + '声，应为第' + detail.expected_tone + '声';
+                    }
+                } else {
+                    toneSection.style.display = 'none';
+                }
+                
+                // 错误列表
+                const errorList = document.getElementById('error-list');
+                if (detail.is_silence) {
+                    errorList.innerHTML = '<span class="error-tag">🔇 未检测到发音</span>';
+                } else if (detail.is_low_energy) {
+                    errorList.innerHTML = '<span class="error-tag">🔉 发音过轻</span>';
+                } else if (detail.errors && detail.errors.length > 0) {
+                    errorList.innerHTML = detail.errors.map(e => 
+                        '<span class="error-tag">' + e + '</span>'
+                    ).join('');
+                } else {
+                    errorList.innerHTML = '<span style="opacity:0.7;">👍 发音良好，无明显问题</span>';
+                }
+                
+                document.getElementById('detail-panel').classList.add('show');
+            }
+            
+            function hideDetail() {
+                document.getElementById('detail-panel').classList.remove('show');
+            }
+            
+            function replayChar() {
+                playAudioSegment(currentStart, currentEnd);
+            }
+            '''
+        
         st.components.v1.html(f'''
+        <style>
+            .detail-panel {{
+                display: none;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 12px;
+                padding: 20px;
+                margin-top: 16px;
+                color: white;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            }}
+            .detail-panel.show {{
+                display: block;
+                animation: slideIn 0.3s ease;
+            }}
+            @keyframes slideIn {{
+                from {{ opacity: 0; transform: translateY(-10px); }}
+                to {{ opacity: 1; transform: translateY(0); }}
+            }}
+            .score-bar {{
+                height: 8px;
+                border-radius: 4px;
+                background: rgba(255,255,255,0.3);
+                overflow: hidden;
+                margin: 4px 0;
+            }}
+            .score-fill {{
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.5s ease;
+            }}
+            .error-tag {{
+                display: inline-block;
+                background: rgba(255,255,255,0.2);
+                padding: 4px 10px;
+                border-radius: 20px;
+                margin: 2px;
+                font-size: 12px;
+            }}
+        </style>
+        
         <audio id="user-recording" src="data:audio/wav;base64,{audio_base64}" style="display:none;"></audio>
+        
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+            {word_html}
+        </div>
+        
+        {detail_panel_html}
+        
         <script>
             let animationFrameId = null;
+            let currentStart = 0;
+            let currentEnd = 0;
             const PLAYBACK_END_OFFSET = {PLAYBACK_END_OFFSET};
             
-            function playWord(startTime, endTime) {{
+            function playAudioSegment(startTime, endTime) {{
                 const audio = document.getElementById('user-recording');
                 audio.pause();
                 if (animationFrameId) {{
@@ -875,11 +1140,14 @@ if "last_result" in st.session_state:
                 
                 attemptPlayback();
             }}
+            
+            function playWord(startTime, endTime) {{
+                playAudioSegment(startTime, endTime);
+            }}
+            
+            {detail_js}
         </script>
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            {word_html}
-        </div>
-        ''', height=200)
+        ''', height=450 if is_chinese_result else 200)
     else:
         st.warning("Audio file not available for word playback.")
     
@@ -930,6 +1198,26 @@ if "last_result" in st.session_state:
                 st.metric("⏱️ 时长", f"{detailed.get('duration', 0)}/100")
             with col4:
                 st.metric("🌊 流畅度", f"{detailed.get('pause', 0)}/100")
+        
+        # ========== 增强：显示各字符详细得分表格 ==========
+        if is_chinese_result and word_scores:
+            st.markdown("#### 各字符详细得分")
+            
+            table_data = []
+            for w in word_scores:
+                row = {
+                    "字符": w.get('word', ''),
+                    "拼音": w.get('pinyin', ''),
+                    "声学": f"{w.get('acoustic_score', 0.7) * 100:.0f}",
+                    "声调": f"{w.get('tone_score', 0.7) * 100:.0f}",
+                    "时长": f"{w.get('duration_score', 0.7) * 100:.0f}",
+                    "流畅": f"{w.get('pause_score', 0.7) * 100:.0f}",
+                    "总分": w.get('score', 0),
+                    "错误": ", ".join(w.get('errors', [])) if w.get('errors') else "无"
+                }
+                table_data.append(row)
+            
+            st.table(table_data)
         
         # Display phoneme information if available (WhisperX for English)
         phonemes = result.get('phonemes', [])
