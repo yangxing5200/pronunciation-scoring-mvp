@@ -665,24 +665,31 @@ with col1:
     
     st.markdown("#### ✨ AI Voice Clone")
     st.caption("Hear this sentence in YOUR voice!")
-    
+        
     if st.button("🎨 Generate My Voice"):
         if "processor" not in st.session_state:
             st.error("Models not loaded yet!")
-        elif "last_audio_path" in st.session_state:
-            with st.spinner("Cloning your voice..."):
-                cloned_path = st.session_state.processor.clone_voice(
-                    st.session_state.last_audio_path,
-                    target_text
-                )
-                
-                if cloned_path and Path(cloned_path).exists():
-                    st.success("✅ Generation Complete!")
-                    st.audio(cloned_path)
-                else:
-                    st.warning("⚠️ Voice cloning not available.")
         else:
-            st.error("⚠️ Please record or upload audio first!")
+            # Determine reference audio based on language
+            is_chinese = bool(re.search(r'[\u4e00-\u9fff]', target_text))
+            lang_code = "zh" if is_chinese else "en"
+            ref_audio_path = Path("references") / f"user_{lang_code}.wav"
+            
+            if not ref_audio_path.exists():
+                st.error(f"❌ Reference audio not found: {ref_audio_path}")
+                st.info(f"💡 Please add your voice sample: `{ref_audio_path}`")
+            else:
+                with st.spinner("Cloning your voice..."):
+                    cloned_path = st.session_state.processor.clone_voice(
+                        str(ref_audio_path),
+                        target_text
+                    )
+                    
+                    if cloned_path and Path(cloned_path).exists():
+                        st.success(f"✅ Generation Complete! (Using {lang_code} voice)")
+                        st.audio(cloned_path)
+                    else:
+                            st.warning("⚠️ Voice cloning not available.")
 
 with col2:
     st.subheader("🎤 Practice Area")
